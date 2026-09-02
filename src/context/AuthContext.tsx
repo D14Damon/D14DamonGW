@@ -13,10 +13,13 @@ import {
   subscribeToAllUsersFromFirestore,
   adminUpdateUserProfileInFirestore,
   adminResetAllUsersStatsInFirestore,
+  deleteUserAccountFromFirestore,
+  adminDeleteUserFromFirestore,
   isFirebaseConfigured,
   getFirebaseAuth,
   initFirebaseService,
   logActivityToFirestore,
+  checkUsernameAvailability,
 } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { PRESET_AVATARS } from '../utils/avatarIcons';
@@ -45,10 +48,13 @@ interface AuthContextType {
   loginWithFirebaseEmail: (email: string, pass: string) => Promise<void>;
   registerWithFirebaseEmail: (email: string, pass: string, username: string, avatar?: string, color?: string) => Promise<void>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
+  adminDeleteUser: (targetUserId: string) => Promise<void>;
   updateStats: (statDelta: Partial<PlayerStats>, wonGame?: boolean, gameTitle?: string) => void;
   logPlayerActivity: (activity: Omit<PlayerActivity, 'id' | 'userId' | 'username' | 'avatar' | 'timestamp'>) => void;
   updateAvatar: (avatar: string, color?: string) => void;
-  updateUsername: (username: string) => void;
+  updateUsername: (username: string) => Promise<{ success: boolean; error?: string }>;
+  isUsernameAvailable: (username: string, excludeUserId?: string) => Promise<{ available: boolean; reason?: string }>;
   overrideStats: (newStats: Partial<PlayerStats>, newLevel?: number, newXp?: number) => void;
   resetUserStats: () => void;
   resetAllUsersStats: () => Promise<number>;
@@ -537,9 +543,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      let chosenName = (fbUser.displayName || user?.username || 'Player').trim();
+      // Ensure unique username for Google user if not already set in cloud
+      const check = await checkUsernameAvailability(chosenName, fbUser.uid);
+      if (!check.available) {
+        chosenName = `${chosenName.slice(0, 15)}_${Math.floor(100 + Math.random() * 900)}`;
+      }
+
       const profile: UserProfile = normalizeUserProfile({
         id: fbUser.uid,
-        username: fbUser.displayName || user?.username || 'SketchStar',
+        username: chosenName,
         email: fbUser.email || undefined,
         avatar: user?.avatar || fbUser.photoURL || DEFAULT_AVATARS[0],
         color: user?.color || DEFAULT_COLORS[0],
@@ -594,15 +607,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     avatar?: string,
     color?: string
   ) => {
+    const cleanName = (username || '').trim();
+    if (!cleanName) {
+      throw new Error('Please enter a player username.');
+    }
+    if (cleanName.length < 2) {
+      throw new Error('Player username must be at least 2 characters long.');
+    }
+    if (cleanName.length > 20) {
+      throw new Error('Player username cannot exceed 20 characters.');
+    }
+
+    // Check in-memory list first
+    const inMemoryMatch = allRegisteredUsers.some(
+      (u) => u.username.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (inMemoryMatch) {
+      throw new Error(`The username "${cleanName}" is already taken by another player. Please choose a unique username.`);
+    }
+
+    // Check against Firestore database
+    const availability = await checkUsernameAvailability(cleanName);
+    if (!availability.available) {
+      throw new Error(availability.reason || `The username "${cleanName}" is already taken.`);
+    }
+
     const fbUser = await registerWithEmail(email, pass);
     if (fbUser) {
-      const chosenName = username.trim() || email.split('@')[0];
       const chosenAvatar = avatar || user?.avatar || DEFAULT_AVATARS[0];
       const chosenColor = color || user?.color || DEFAULT_COLORS[0];
 
       const profile: UserProfile = normalizeUserProfile({
         id: fbUser.uid,
-        username: chosenName,
+        username: cleanName,
         email: fbUser.email || email,
         avatar: chosenAvatar,
         color: chosenColor,
@@ -649,6 +686,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveUser(guest);
   };
 
+  /**
+   * Instantly delete the current player's account from Firebase database (users & leaderboard),
+   * remove local storage credentials, and reset to a new clean guest account.
+   */
+  const deleteAccount = async () => {
+    if (!user) return;
+    const userIdToDelete = user.id;
+    const userNameToDelete = user.username;
+
+    console.log(`🗑️ Deleting account for user: ${userNameToDelete} (ID: ${userIdToDelete})`);
+
+    // 1. Permanently delete from Firebase (users & leaderboard & auth)
+    await deleteUserAccountFromFirestore(userIdToDelete);
+
+    // 2. Remove from active registered users state
+    setAllRegisteredUsers((prev) => prev.filter((u) => u.id !== userIdToDelete));
+
+    // 3. Clear localStorage user key
+    try {
+      localStorage.removeItem(STORAGE_KEY_USER);
+    } catch (e) {
+      console.warn('Failed to remove user from localStorage', e);
+    }
+
+    // 4. Reset to clean fresh guest user
+    const freshGuest = normalizeUserProfile({
+      id: 'guest_' + Math.random().toString(36).substring(2, 9),
+      username: `Player_${Math.floor(100 + Math.random() * 900)}`,
+      avatar: DEFAULT_AVATARS[0],
+      color: DEFAULT_COLORS[0],
+      createdAt: new Date().toISOString(),
+      stats: {
+        gamesPlayed: 0,
+        wins: 0,
+        losses: 0,
+        totalScore: 0,
+        wordsGuessed: 0,
+        drawingsCompleted: 0,
+        highestRoundScore: 0,
+      },
+      level: 1,
+      xp: 0,
+      unlockedBadges: ['Newbie Artist'],
+    });
+
+    setUser(freshGuest);
+    try {
+      localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(freshGuest));
+    } catch (e) {
+      console.warn('Failed to set fresh guest in localStorage', e);
+    }
+
+    soundManager.playCorrect();
+    console.log(`✅ Account ${userNameToDelete} successfully deleted from Firebase.`);
+  };
+
+  /**
+   * Admin function: delete any user record from Firebase and state
+   */
+  const adminDeleteUser = async (targetUserId: string) => {
+    await adminDeleteUserFromFirestore(targetUserId);
+    setAllRegisteredUsers((prev) => prev.filter((u) => u.id !== targetUserId));
+    if (user && user.id === targetUserId) {
+      await logout();
+    }
+  };
+
   const updateAvatar = (avatar: string, color?: string) => {
     if (!user) return;
     saveUser({
@@ -658,13 +762,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
-  const updateUsername = (username: string) => {
-    if (!user) return;
-    const cleanName = username.trim() || user.username;
+  const updateUsername = async (username: string): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'No active user session.' };
+    const cleanName = username.trim();
+    if (!cleanName) {
+      return { success: false, error: 'Username cannot be empty.' };
+    }
+    if (cleanName === user.username) {
+      return { success: true };
+    }
+    if (cleanName.length < 2) {
+      return { success: false, error: 'Username must be at least 2 characters long.' };
+    }
+    if (cleanName.length > 20) {
+      return { success: false, error: 'Username cannot exceed 20 characters.' };
+    }
+
+    // Check in-memory list first
+    const inMemoryMatch = allRegisteredUsers.some(
+      (u) => u.id !== user.id && u.username.trim().toLowerCase() === cleanName.toLowerCase()
+    );
+    if (inMemoryMatch) {
+      return {
+        success: false,
+        error: `The username "${cleanName}" is already taken by another player. Please choose a different unique username.`,
+      };
+    }
+
+    // Check Firestore database
+    const check = await checkUsernameAvailability(cleanName, user.id);
+    if (!check.available) {
+      return {
+        success: false,
+        error: check.reason || `The username "${cleanName}" is already taken.`,
+      };
+    }
+
     saveUser({
       ...user,
       username: cleanName,
     });
+
+    return { success: true };
+  };
+
+  const isUsernameAvailable = async (name: string, excludeUserId?: string) => {
+    return checkUsernameAvailability(name, excludeUserId || user?.id);
   };
 
   // Admin function: Toggle งip for any user
@@ -892,10 +1035,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithFirebaseEmail,
         registerWithFirebaseEmail,
         logout,
+        deleteAccount,
+        adminDeleteUser,
         updateStats,
         logPlayerActivity,
         updateAvatar,
         updateUsername,
+        isUsernameAvailable,
         overrideStats,
         resetUserStats,
         resetAllUsersStats,

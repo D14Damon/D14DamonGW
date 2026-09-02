@@ -7,6 +7,7 @@ import {
   createUserWithEmailAndPassword,
   signInAnonymously,
   signOut,
+  deleteUser,
   User,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -15,6 +16,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  deleteDoc,
   collection,
   query,
   orderBy,
@@ -620,6 +622,151 @@ export async function adminResetAllUsersStatsInFirestore(): Promise<number> {
     throw err;
   }
 }
+
+/**
+ * Permanently delete a user account from Firestore (users collection and leaderboard collection)
+ * and attempt deletion of Firebase Auth credentials if active.
+ */
+export async function deleteUserAccountFromFirestore(userId: string): Promise<void> {
+  const db = getFirestoreDb();
+  const fallbackDb = firebaseApp ? getFirestore(firebaseApp) : null;
+  const auth = getFirebaseAuth();
+
+  console.log(`🗑️ Deleting user account [${userId}] from Firebase...`);
+
+  // 1. Delete from Firestore 'users' collection
+  if (db && userId) {
+    try {
+      await writeWithFirestoreFallback(async (activeDb) => {
+        await deleteDoc(doc(activeDb, 'users', userId));
+      }, fallbackDb);
+      console.log(`✅ User document deleted from Firestore users/${userId}`);
+    } catch (err) {
+      console.warn(`Firestore user document deletion warning:`, err);
+    }
+  }
+
+  // 2. Delete from Firestore 'leaderboard' collection
+  if (db && userId) {
+    try {
+      await writeWithFirestoreFallback(async (activeDb) => {
+        await deleteDoc(doc(activeDb, 'leaderboard', userId));
+      }, fallbackDb);
+      console.log(`✅ User entry deleted from Firestore leaderboard/${userId}`);
+    } catch (err) {
+      console.warn(`Firestore leaderboard document deletion warning:`, err);
+    }
+  }
+
+  // 3. Delete Firebase Auth user if currently logged in with matching uid
+  if (auth && auth.currentUser && auth.currentUser.uid === userId) {
+    try {
+      await deleteUser(auth.currentUser);
+      console.log(`✅ Firebase Auth user credentials deleted for uid [${userId}]`);
+    } catch (authErr) {
+      console.warn(`Firebase Auth deleteUser warning:`, authErr);
+      try {
+        await signOut(auth);
+      } catch (signOutErr) {
+        console.warn(`Firebase Auth signOut warning:`, signOutErr);
+      }
+    }
+  }
+
+  // 4. Remove cached credentials from localStorage
+  try {
+    localStorage.removeItem('guess_what_current_user');
+  } catch (storageErr) {
+    console.warn('LocalStorage cleanup error:', storageErr);
+  }
+}
+
+/**
+ * Admin action: delete any user record from Firestore users and leaderboard collections.
+ */
+export async function adminDeleteUserFromFirestore(userId: string): Promise<void> {
+  const db = getFirestoreDb();
+  const fallbackDb = firebaseApp ? getFirestore(firebaseApp) : null;
+  if (!db || !userId) return;
+
+  try {
+    // Delete from users
+    await writeWithFirestoreFallback(async (activeDb) => {
+      await deleteDoc(doc(activeDb, 'users', userId));
+    }, fallbackDb);
+
+    // Delete from leaderboard
+    await writeWithFirestoreFallback(async (activeDb) => {
+      await deleteDoc(doc(activeDb, 'leaderboard', userId));
+    }, fallbackDb);
+
+    console.log(`✅ Admin deleted user [${userId}] from Firestore users and leaderboard.`);
+  } catch (err) {
+    console.error(`Failed to admin delete user [${userId}] from Firestore:`, err);
+    throw err;
+  }
+}
+
+/**
+ * Check whether a requested username is already taken by any other player across Firestore users and leaderboard.
+ */
+export async function checkUsernameAvailability(
+  username: string,
+  excludeUserId?: string
+): Promise<{ available: boolean; reason?: string }> {
+  const clean = username.trim();
+  if (!clean) {
+    return { available: false, reason: 'Username cannot be empty.' };
+  }
+  if (clean.length < 2) {
+    return { available: false, reason: 'Username must be at least 2 characters.' };
+  }
+  if (clean.length > 20) {
+    return { available: false, reason: 'Username cannot exceed 20 characters.' };
+  }
+
+  const db = getFirestoreDb();
+  if (!db) {
+    return { available: true };
+  }
+
+  try {
+    const targetLower = clean.toLowerCase();
+
+    // 1. Check users collection
+    const usersSnap = await getDocs(collection(db, 'users'));
+    for (const docSnap of usersSnap.docs) {
+      if (excludeUserId && docSnap.id === excludeUserId) continue;
+      const data = docSnap.data();
+      const existingName = (data.username || '').toString().trim().toLowerCase();
+      if (existingName === targetLower) {
+        return {
+          available: false,
+          reason: `The username "${clean}" is already taken by another player. Please choose a different unique username.`,
+        };
+      }
+    }
+
+    // 2. Check leaderboard collection
+    const leaderSnap = await getDocs(collection(db, 'leaderboard'));
+    for (const docSnap of leaderSnap.docs) {
+      if (excludeUserId && docSnap.id === excludeUserId) continue;
+      const data = docSnap.data();
+      const existingName = (data.username || '').toString().trim().toLowerCase();
+      if (existingName === targetLower) {
+        return {
+          available: false,
+          reason: `The username "${clean}" is already taken by another player on the leaderboard. Please choose a different unique username.`,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Username uniqueness check against Firestore warning:', err);
+  }
+
+  return { available: true };
+}
+
 
 
 

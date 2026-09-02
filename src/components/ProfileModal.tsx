@@ -11,6 +11,9 @@ import {
   Sliders,
   RotateCcw,
   Pencil,
+  Trash2,
+  AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import { useAuth, ADMIN_EMAILS } from '../context/AuthContext';
 import { AvatarSelector } from './AvatarSelector';
@@ -32,6 +35,7 @@ export const ProfileModal: React.FC<{
     isAdmin,
     isNgip,
     logout,
+    deleteAccount,
     updateAvatar,
     updateUsername,
     overrideStats,
@@ -42,9 +46,13 @@ export const ProfileModal: React.FC<{
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameInput, setNameInput] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [nameErrorMsg, setNameErrorMsg] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(soundManager.getMuted());
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -54,16 +62,38 @@ export const ProfileModal: React.FC<{
 
   if (!isOpen || !user) return null;
 
-  const handleSaveName = (e?: React.FormEvent) => {
+  const handleSaveName = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const clean = nameInput.trim();
-    if (clean && clean !== user.username) {
-      updateUsername(clean);
-      soundManager.playCorrect();
-      setSaveSuccessMsg('Username updated!');
-      setTimeout(() => setSaveSuccessMsg(null), 3000);
+    if (!clean) {
+      setNameErrorMsg('Username cannot be empty.');
+      return;
     }
-    setIsEditingName(false);
+    if (clean === user.username) {
+      setIsEditingName(false);
+      setNameErrorMsg(null);
+      return;
+    }
+
+    setNameErrorMsg(null);
+    setIsSavingName(true);
+    try {
+      const res = await updateUsername(clean);
+      if (res && !res.success) {
+        setNameErrorMsg(res.error || 'This username is already taken. Please pick a unique name.');
+        soundManager.playError();
+        return;
+      }
+      soundManager.playCorrect();
+      setSaveSuccessMsg('Username updated successfully!');
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
+      setIsEditingName(false);
+    } catch (err) {
+      setNameErrorMsg(err instanceof Error ? err.message : 'Failed to update username.');
+      soundManager.playError();
+    } finally {
+      setIsSavingName(false);
+    }
   };
 
   const handleToggleSound = () => {
@@ -148,35 +178,49 @@ export const ProfileModal: React.FC<{
 
               <div className="flex-1 min-w-0">
                 {isEditingName ? (
-                  <form onSubmit={handleSaveName} className="flex items-center gap-1.5">
-                    <input
-                      type="text"
-                      value={nameInput}
-                      onChange={(e) => setNameInput(e.target.value)}
-                      maxLength={24}
-                      autoFocus
-                      className="flex-1 px-2.5 py-1 text-xs sm:text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl border border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      placeholder="Enter new username"
-                    />
-                    <button
-                      type="submit"
-                      className="p-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-                      title="Save Username"
-                    >
-                      <Save className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNameInput(user.username);
-                        setIsEditingName(false);
-                      }}
-                      className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
-                      title="Cancel"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </form>
+                  <div className="space-y-1">
+                    <form onSubmit={handleSaveName} className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={nameInput}
+                        onChange={(e) => {
+                          setNameInput(e.target.value);
+                          if (nameErrorMsg) setNameErrorMsg(null);
+                        }}
+                        maxLength={20}
+                        autoFocus
+                        disabled={isSavingName}
+                        className="flex-1 px-2.5 py-1 text-xs sm:text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-xl border border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
+                        placeholder="Enter new username"
+                      />
+                      <button
+                        type="submit"
+                        disabled={isSavingName}
+                        className="p-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+                        title="Save Username"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingName}
+                        onClick={() => {
+                          setNameInput(user.username);
+                          setIsEditingName(false);
+                          setNameErrorMsg(null);
+                        }}
+                        className="p-1.5 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                        title="Cancel"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </form>
+                    {nameErrorMsg && (
+                      <p className="text-[10px] text-rose-500 font-semibold leading-tight">
+                        {nameErrorMsg}
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <div className="flex items-center gap-2 flex-wrap">
                     <NgipName
@@ -428,21 +472,111 @@ export const ProfileModal: React.FC<{
             </div>
           </div>
 
-          {/* Logout */}
-          <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+          {/* Account Actions: Logout & Delete Account */}
+          <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
             <button
               onClick={() => {
                 logout();
                 onClose();
               }}
-              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center gap-2 transition-all cursor-pointer"
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
               <span>Logout</span>
             </button>
+
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 flex items-center justify-center gap-2 transition-all cursor-pointer group"
+            >
+              <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              <span>Delete Account</span>
+            </button>
           </div>
         </div>
       </div>
+
+      {/* Instant Account Deletion Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div
+          id="delete-account-modal-backdrop"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-fadeIn"
+          onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+        >
+          <div
+            id="delete-account-modal-container"
+            className="bg-white dark:bg-slate-900 border-2 border-rose-500/80 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 flex items-center justify-center text-rose-600 dark:text-rose-400 shadow-inner">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Delete Account Permanently?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                When you click <span className="font-bold text-rose-600 dark:text-rose-400">"Confirm & Delete Now"</span>, your player records, level, career stats, and leaderboard rankings on <span className="font-bold text-amber-500">Firebase</span> will be <span className="underline font-bold text-slate-800 dark:text-slate-200">instantly and permanently erased</span>.
+              </p>
+            </div>
+
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-xl text-left text-[11px] text-rose-700 dark:text-rose-300 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold">
+                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                <span>What will be removed:</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-[10px] text-rose-600 dark:text-rose-400">
+                <li>Firestore user profile document ({user.username})</li>
+                <li>Global Hall of Fame & Leaderboard scores</li>
+                <li>Career statistics (Wins, Losses, Points)</li>
+                <li>Unlocked badges and achievements</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 transition-all cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  try {
+                    await deleteAccount();
+                    setShowDeleteConfirm(false);
+                    onClose();
+                  } catch (err) {
+                    console.error('Failed to delete account:', err);
+                  } finally {
+                    setIsDeleting(false);
+                  }
+                }}
+                className="flex-1 py-2.5 px-3 rounded-xl text-xs font-black text-white bg-rose-600 hover:bg-rose-700 active:scale-95 shadow-md shadow-rose-600/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Confirm & Delete Now</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Admin Panel Modal launched from Profile */}
       {showAdminModal && <AdminPanel onClose={() => setShowAdminModal(false)} />}

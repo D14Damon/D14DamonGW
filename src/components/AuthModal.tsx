@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { User, LogIn, Sparkles, Mail, Lock, CheckCircle, X, Shield, Eye, EyeOff, UserPlus, Palette } from 'lucide-react';
+import { motion } from 'motion/react';
+import { User, LogIn, Sparkles, Mail, Lock, CheckCircle, X, Shield, Eye, EyeOff, UserPlus, Palette, AlertTriangle, ArrowRight } from 'lucide-react';
 import { useAuth, AVATAR_OPTIONS, COLOR_OPTIONS } from '../context/AuthContext';
 import { soundManager } from '../utils/soundEffects';
 import { AvatarSelector } from './AvatarSelector';
@@ -67,35 +67,32 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-sans">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5"
+        className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl space-y-4 text-slate-100"
       >
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-xs">
-              <Palette className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-xs">
+              <Shield className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">
-                Account & Authentication
+              <h3 className="text-base font-bold text-white leading-tight">
+                Player Authentication
               </h3>
-              <p className="text-xs font-bold tracking-wide">
-                <span className="text-slate-500">By </span>
-                <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 bg-clip-text text-transparent drop-shadow-[0_1px_2px_rgba(245,158,11,0.5)] font-black">
-                  D14Dąmon
-                </span>
+              <p className="text-xs text-slate-400">
+                Sign in to sync your stats & rank
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl"
+            className="p-1.5 text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -106,7 +103,7 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
           type="button"
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full py-3 px-4 rounded-xl font-bold text-xs text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 flex items-center justify-center gap-2.5 transition-all shadow-xs"
+          className="w-full py-2.5 px-4 rounded-xl font-semibold text-xs text-slate-900 bg-white hover:bg-slate-100 disabled:opacity-50 transition-all shadow-xs flex items-center justify-center gap-2.5 cursor-pointer border border-slate-200"
         >
           <svg className="w-4 h-4" viewBox="0 0 24 24">
             <path
@@ -126,27 +123,27 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
               d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
             />
           </svg>
-          <span>Continue to Google</span>
+          <span>Continue with Google</span>
         </button>
 
         <div className="relative flex items-center justify-center">
-          <div className="w-full border-t border-slate-200 dark:border-slate-800" />
-          <span className="absolute px-2 bg-white dark:bg-slate-900 text-[10px] font-bold text-slate-400 uppercase">
-            Or With Email
+          <div className="w-full border-t border-slate-800" />
+          <span className="absolute px-2 bg-slate-900 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
+            or with email
           </span>
         </div>
 
         {/* Tab Selection */}
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+        <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs font-semibold">
           <button
             onClick={() => {
               setTab('login');
               soundManager.playTick();
             }}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               tab === 'login'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                : 'text-slate-500'
+                ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             <LogIn className="w-3.5 h-3.5" />
@@ -157,10 +154,10 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
               setTab('register');
               soundManager.playTick();
             }}
-            className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+            className={`py-1.5 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               tab === 'register'
-                ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                : 'text-slate-500'
+                ? 'bg-indigo-600 text-white shadow-xs font-bold'
+                : 'text-slate-400 hover:text-white'
             }`}
           >
             <UserPlus className="w-3.5 h-3.5" />
@@ -169,29 +166,31 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
         </div>
 
         {errorMsg && (
-          <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-semibold">
-            {errorMsg}
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>{errorMsg}</span>
           </div>
         )}
 
         {/* Form: Login / Register */}
-        <form onSubmit={handleEmailAuth} className="space-y-3.5 text-xs">
+        <form onSubmit={handleEmailAuth} className="space-y-3 text-xs">
           {tab === 'register' && (
             <>
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Username</label>
+                <label className="font-semibold text-slate-300 text-[11px]">Player Username</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Choose username"
+                  maxLength={20}
                   required
-                  className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 bg-slate-950 text-white rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs transition-colors"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-slate-700 dark:text-slate-300">Avatar Selection</label>
+                <label className="font-semibold text-slate-300 text-[11px]">Custom Profile Photo (Optional)</label>
                 <AvatarSelector
                   value={selectedAvatar}
                   onChange={setSelectedAvatar}
@@ -202,19 +201,19 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
           )}
 
           <div className="space-y-1">
-            <label className="font-bold text-slate-700 dark:text-slate-300">Email Address</label>
+            <label className="font-semibold text-slate-300 text-[11px]">Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@example.com"
               required
-              className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full px-3 py-2 bg-slate-950 text-white rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 text-xs transition-colors"
             />
           </div>
 
           <div className="space-y-1">
-            <label className="font-bold text-slate-700 dark:text-slate-300">Password</label>
+            <label className="font-semibold text-slate-300 text-[11px]">Password</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -223,12 +222,12 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
                 placeholder="••••••••"
                 required
                 minLength={6}
-                className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 pr-9"
+                className="w-full px-3 py-2 bg-slate-950 text-white rounded-xl border border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 pr-9 text-xs transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer"
               >
                 {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
@@ -238,9 +237,10 @@ export const AuthModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-600/20"
+            className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 transition-all shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 cursor-pointer mt-1"
           >
-            {loading ? 'Processing...' : tab === 'login' ? 'Sign In' : 'Create Account'}
+            <span>{loading ? 'Processing...' : tab === 'login' ? 'Sign In & Enter' : 'Create Account & Enter'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </form>
       </motion.div>

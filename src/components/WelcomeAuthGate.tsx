@@ -7,14 +7,17 @@ import {
   Shield,
   ArrowRight,
   Check,
-  Flame,
-  Palette,
   Mail,
   Lock,
   User,
   Eye,
   EyeOff,
   AlertTriangle,
+  Zap,
+  Gamepad2,
+  Globe,
+  Upload,
+  Camera,
 } from 'lucide-react';
 import { useAuth, COLOR_OPTIONS } from '../context/AuthContext';
 import { PRESET_AVATARS } from '../utils/avatarIcons';
@@ -24,7 +27,6 @@ import { AvatarSelector } from './AvatarSelector';
 import { AvatarRenderer } from './AvatarRenderer';
 import { GWLogo } from './GWLogo';
 import { DarkModeToggle } from './DarkModeToggle';
-import { GothicDripBackground } from './GothicDripBackground';
 
 interface WelcomeAuthGateProps {
   onEnter: () => void;
@@ -54,7 +56,6 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const startThemeAndEnter = () => {
-    // Trigger the Battle Hymn of the Republic Rockhestra Theme Song!
     themeMusic.start();
     onEnter();
   };
@@ -109,58 +110,63 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
     startThemeAndEnter();
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-3 sm:p-6 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 relative overflow-hidden font-sans select-none transition-colors duration-300">
-      {/* Y2K Gothic Drip Background Graffiti Overlay */}
-      <GothicDripBackground />
+  const handleContinueAsGuest = () => {
+    soundManager.playCorrectGuess();
+    startThemeAndEnter();
+  };
 
-      {/* Top Bar for Dark Mode Toggle & Quick Settings */}
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 relative overflow-hidden font-sans select-none transition-colors duration-200">
+      {/* Refined Ambient Glow Background */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-100/80 via-slate-100 to-slate-100 dark:from-indigo-950/40 dark:via-slate-950 dark:to-slate-950 pointer-events-none transition-colors duration-200" />
+      <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-indigo-500/10 dark:bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute -bottom-40 left-1/3 w-[500px] h-[400px] bg-purple-500/10 dark:bg-purple-600/10 rounded-full blur-[100px] pointer-events-none" />
+
+      {/* Subtle Grid Accent */}
+      <div
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage:
+            'linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+        }}
+      />
+
+      {/* Top Bar with Theme Toggle */}
       <div className="absolute top-4 right-4 z-20">
         <DarkModeToggle />
       </div>
 
-      {/* Background Neon Aura Splatters */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-purple-600/20 dark:bg-purple-600/30 rounded-full blur-3xl pointer-events-none animate-pulse" />
-      <div
-        className="absolute bottom-1/4 -right-20 w-96 h-96 bg-pink-600/20 dark:bg-pink-600/25 rounded-full blur-3xl pointer-events-none animate-pulse"
-        style={{ animationDelay: '1.2s' }}
-      />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[650px] bg-purple-600/10 dark:bg-purple-600/20 rounded-full blur-[110px] pointer-events-none" />
-
-      {/* Main Y2K Gothic Drip Chrome Card */}
+      {/* Main Authentication Card */}
       <motion.div
-        initial={{ opacity: 0, scale: 0.94, y: 20 }}
+        initial={{ opacity: 0, scale: 0.96, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
-        className="w-full max-w-lg bg-white/95 dark:bg-slate-900/90 backdrop-blur-2xl border-2 border-slate-300 dark:border-purple-800/80 rounded-3xl p-6 sm:p-9 shadow-2xl shadow-purple-950/20 relative z-10 space-y-6"
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="w-full max-w-[460px] bg-white/95 dark:bg-slate-900/90 backdrop-blur-xl border border-slate-200/90 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl dark:shadow-2xl dark:shadow-black/80 relative z-10 space-y-5 transition-colors duration-200"
       >
-        {/* Brand Header with Y2K Gothic Drip Logo & Tagline */}
+        {/* Brand Header */}
         <div className="text-center space-y-3 flex flex-col items-center">
-          <div className="pt-1">
-            <GWLogo size="xl" showText={true} />
+          <div className="flex items-center justify-center pt-1">
+            <GWLogo size="lg" showText={true} />
           </div>
 
-          <div className="space-y-1">
-            <p className="text-sm sm:text-base font-black tracking-wide">
-              <span className="text-slate-700 dark:text-slate-300">By </span>
-              <span className="bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 bg-clip-text text-transparent drop-shadow-[0_1px_2px_rgba(245,158,11,0.5)] font-black">
-                D14Dąmon
-              </span>
-            </p>
+          <div className="pt-0.5">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              By <span className="text-amber-500 dark:text-amber-400 font-bold">D14Dąmon</span>
+            </span>
           </div>
         </div>
 
-        {/* Prominent Google Auth One-Click */}
+        {/* Google Authentication Button */}
         <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
           type="button"
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full py-3.5 px-4 rounded-2xl font-black text-sm text-slate-900 bg-white hover:bg-slate-50 disabled:opacity-50 transition-all shadow-lg shadow-purple-900/10 flex items-center justify-center gap-3 border-2 border-slate-300 dark:border-slate-600 cursor-pointer"
+          className="w-full py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-slate-800 dark:text-slate-900 bg-white hover:bg-slate-50 dark:bg-white dark:hover:bg-slate-100 disabled:opacity-60 transition-all shadow-sm flex items-center justify-center gap-3 border border-slate-200 cursor-pointer"
         >
-          {/* Google 4-Color Logo */}
-          <svg className="w-5 h-5" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
             <path
               fill="#4285F4"
               d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
@@ -178,32 +184,32 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
               d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
             />
           </svg>
-          <span>Connect with Google Account</span>
+          <span>Continue with Google</span>
         </motion.button>
 
-        {/* Divider */}
+        {/* Minimal Divider */}
         <div className="relative flex items-center justify-center">
-          <div className="w-full border-t border-slate-300 dark:border-slate-800" />
-          <span className="absolute px-3 bg-white dark:bg-slate-900 text-[11px] font-black text-slate-500 uppercase tracking-wider">
-            Or Use Email Account
+          <div className="w-full border-t border-slate-200 dark:border-slate-800" />
+          <span className="absolute px-3 bg-white dark:bg-slate-900 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+            or with email
           </span>
         </div>
 
-        {/* Tab Selector: Create Account vs Login vs Saved */}
-        <div className="grid grid-cols-2 gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-300 dark:border-slate-700/60 text-xs font-black">
+        {/* Segmented Tab Switcher */}
+        <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-slate-950/80 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold">
           <button
             type="button"
             onClick={() => {
               setActiveTab('register');
               soundManager.playTick();
             }}
-            className={`py-2.5 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'register'
-                ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-indigo-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-3.5 h-3.5" />
             <span>Create Account</span>
           </button>
 
@@ -213,80 +219,83 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
               setActiveTab('login');
               soundManager.playTick();
             }}
-            className={`py-2.5 px-2 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'login'
-                ? 'bg-purple-600 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                ? 'bg-indigo-600 text-white shadow-sm font-bold'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
             }`}
           >
-            <LogIn className="w-4 h-4" />
-            <span>Login</span>
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Sign In</span>
           </button>
         </div>
 
         {/* Error Alert */}
         {errorMsg && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-2"
+            className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300 text-xs font-medium flex items-center gap-2"
           >
-            <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
             <span>{errorMsg}</span>
           </motion.div>
         )}
 
-        {/* Saved Session banner (if previously logged in) */}
+        {/* Active Session Quick Resume */}
         {user && activeTab !== 'continue' && (
-          <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-300 dark:border-slate-700/60 flex items-center justify-between">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
             <div className="flex items-center gap-2.5 text-xs">
-              <div className="w-9 h-9 rounded-xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xl flex-shrink-0">
+              <div className="w-8 h-8 rounded-lg overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center flex-shrink-0">
                 <AvatarRenderer avatar={user.avatar} className="w-full h-full object-cover" />
               </div>
               <div>
-                <span className="font-black text-slate-900 dark:text-white">{user.username}</span>
-                <span className="text-slate-500 dark:text-slate-400 text-[11px] block">Currently logged in</span>
+                <span className="font-bold text-slate-900 dark:text-white block leading-tight">{user.username}</span>
+                <span className="text-slate-500 dark:text-slate-400 text-[10px]">Active account</span>
               </div>
             </div>
             <button
               type="button"
               onClick={handleContinueWithSaved}
-              className="px-3 py-1.5 rounded-xl text-xs font-black text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 transition-colors cursor-pointer"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold text-indigo-600 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-500/15 hover:bg-indigo-100 dark:hover:bg-indigo-500/25 border border-indigo-200 dark:border-indigo-500/30 transition-colors cursor-pointer flex items-center gap-1"
             >
-              Resume Session →
+              <span>Resume</span>
+              <ArrowRight className="w-3 h-3" />
             </button>
           </div>
         )}
 
-        {/* TAB 1: CREATE ACCOUNT (Sign Up) */}
+        {/* CREATE ACCOUNT FORM */}
         {activeTab === 'register' && (
           <motion.form
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
             onSubmit={handleEmailAuth}
-            className="space-y-4 text-xs"
+            className="space-y-3.5 text-xs"
           >
-            <div className="space-y-1.5">
-              <label className="font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-purple-500" />
+            {/* Player Username */}
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]">
+                <User className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                 <span>Player Username</span>
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Choose a username..."
+                placeholder="e.g. MasterGamer"
                 maxLength={20}
                 required
-                className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 font-black placeholder-slate-400"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950/80 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium placeholder-slate-400 dark:placeholder-slate-500 text-xs transition-colors"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-purple-500" />
+            {/* Email Address */}
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]">
+                <Mail className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                 <span>Email Address</span>
               </label>
               <input
@@ -295,13 +304,14 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
                 required
-                className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium placeholder-slate-400"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950/80 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium placeholder-slate-400 dark:placeholder-slate-500 text-xs transition-colors"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-pink-500" />
+            {/* Password */}
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]">
+                <Lock className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                 <span>Password</span>
               </label>
               <div className="relative">
@@ -312,23 +322,23 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
                   placeholder="At least 6 characters"
                   minLength={6}
                   required
-                  className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium placeholder-slate-400 pr-10"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950/80 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium placeholder-slate-400 dark:placeholder-slate-500 text-xs transition-colors pr-9"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer p-1"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
             {/* Avatar Selector */}
-            <div className="space-y-1.5 pt-1">
-              <label className="font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Select Your Avatar</span>
+            <div className="space-y-1.5 pt-0.5">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]">
+                <Camera className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+                <span>Custom Profile Photo (Optional)</span>
               </label>
               <AvatarSelector
                 value={selectedAvatar}
@@ -337,32 +347,34 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
               />
             </div>
 
+            {/* Submit Button */}
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 hover:brightness-110 disabled:opacity-50 transition-all shadow-xl shadow-purple-600/30 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full mt-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer"
             >
-              <span>{loading ? 'Creating Account...' : 'Create Account & Enter'}</span>
+              <span>{loading ? 'Creating Account...' : 'Create Account & Play'}</span>
               <ArrowRight className="w-4 h-4" />
             </motion.button>
           </motion.form>
         )}
 
-        {/* TAB 2: LOGIN (Sign In) */}
+        {/* SIGN IN FORM */}
         {activeTab === 'login' && (
           <motion.form
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
             onSubmit={handleEmailAuth}
-            className="space-y-4 text-xs"
+            className="space-y-3.5 text-xs"
           >
-            <div className="space-y-1.5">
-              <label className="font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-purple-500" />
+            {/* Email Address */}
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]">
+                <Mail className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                 <span>Email Address</span>
               </label>
               <input
@@ -371,13 +383,14 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@example.com"
                 required
-                className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium placeholder-slate-400"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950/80 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium placeholder-slate-400 dark:placeholder-slate-500 text-xs transition-colors"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <label className="font-black text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5 text-pink-500" />
+            {/* Password */}
+            <div className="space-y-1">
+              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 text-[11px]">
+                <Lock className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                 <span>Password</span>
               </label>
               <div className="relative">
@@ -387,34 +400,34 @@ export const WelcomeAuthGate: React.FC<WelcomeAuthGateProps> = ({ onEnter }) => 
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Your password"
                   required
-                  className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-300 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 font-medium placeholder-slate-400 pr-10"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-950/80 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium placeholder-slate-400 dark:placeholder-slate-500 text-xs transition-colors pr-9"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 cursor-pointer p-1"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
 
+            {/* Submit Button */}
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-6 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 disabled:opacity-50 transition-all shadow-xl shadow-purple-600/25 flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full mt-2 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               <span>{loading ? 'Signing In...' : 'Sign In & Enter Arcade'}</span>
               <ArrowRight className="w-4 h-4" />
             </motion.button>
           </motion.form>
         )}
-
-
       </motion.div>
     </div>
   );
 };
+
 

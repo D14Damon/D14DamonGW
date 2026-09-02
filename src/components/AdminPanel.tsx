@@ -37,6 +37,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, publicRooms = [
     toggleUserNgip,
     adminOverrideOtherUserStats,
     resetAllUsersStats,
+    adminDeleteUser,
   } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'users' | 'ngip_perks' | 'server'>('users');
@@ -141,6 +142,22 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, publicRooms = [
     } catch (e) {
       console.error(e);
       notify('Failed to reset user stats in database.', 'error');
+    }
+  };
+
+  const handleDeleteUserAccount = async (targetAccount: UserProfile) => {
+    if (!window.confirm(`⚠️ Permanently delete account for "${targetAccount.username}"? All their records on Firebase (user profile, leaderboard scores, and career stats) will be instantly deleted.`)) {
+      return;
+    }
+    try {
+      await adminDeleteUser(targetAccount.id);
+      notify(`Deleted account for ${targetAccount.username} from Firebase!`);
+      if (editingUser && editingUser.id === targetAccount.id) {
+        setEditingUser(null);
+      }
+    } catch (e) {
+      console.error(e);
+      notify('Failed to delete user account from Firebase.', 'error');
     }
   };
 
@@ -567,6 +584,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose, publicRooms = [
                           title="Edit Level & Stats"
                         >
                           <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete User Account Button */}
+                        <button
+                          onClick={() => handleDeleteUserAccount(account)}
+                          className="p-2 bg-rose-950/60 hover:bg-rose-900 border border-rose-600/40 text-rose-400 hover:text-rose-200 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                          title="Delete User Account from Firebase"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
