@@ -508,11 +508,12 @@ export const ChessGame: React.FC<{
 
   const activeUserColor = isMultiplayerChessRoom ? multiplayerUserColor : userColor;
   const enemyColor: PieceColor = activeUserColor === 'w' ? 'b' : 'w';
+  const isLocalPlayerTurn = !isMultiplayerChessRoom || turn === activeUserColor;
   const isAiTurn = Boolean(aiConfig && turn === enemyColor && gameState === 'playing');
 
   // Compute legal moves for current selection
   const legalMovesForSelected = useMemo(() => {
-    if (!selectedSquare || gameState !== 'playing') return [];
+    if (!selectedSquare || gameState !== 'playing' || !isLocalPlayerTurn) return [];
     const { row, col } = squareToCoords(selectedSquare);
     const piece = board[row][col];
     if (!piece || piece.color !== turn) return [];
@@ -555,6 +556,7 @@ export const ChessGame: React.FC<{
   // Perform move
   const executeMove = useCallback(
     (fromSq: string, toSq: string) => {
+      if (isMultiplayerChessRoom && turn !== activeUserColor) return;
       const { row: fr, col: fc } = squareToCoords(fromSq);
       const { row: tr, col: tc } = squareToCoords(toSq);
       const piece = board[fr][fc];
@@ -680,12 +682,12 @@ export const ChessGame: React.FC<{
         }
       }
     },
-    [board, turn, isMultiplayerChessRoom, currentPlayer, moveHistory, capturedByWhite, capturedByBlack]
+    [board, turn, isMultiplayerChessRoom, activeUserColor, currentPlayer, moveHistory, capturedByWhite, capturedByBlack]
   );
 
   // Handle cell clicks
   const handleCellClick = (sq: string) => {
-    if (gameState !== 'playing' || (aiConfig && turn === enemyColor)) return;
+    if (gameState !== 'playing' || !isLocalPlayerTurn || (aiConfig && turn === enemyColor)) return;
 
     const { row, col } = squareToCoords(sq);
     const cell = board[row][col];
