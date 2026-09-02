@@ -5,7 +5,12 @@ export interface FourPicsPuzzle {
   hint: string;
 }
 
-const image = (term: string, lock: number) => `https://loremflickr.com/640/420/${term}?lock=${lock}`;
+const image = (term: string, lock: number) => {
+  const hue = (lock * 47) % 360;
+  const safeTerm = term.replace(/[^a-zA-Z0-9 -]/g, '').slice(0, 22);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 420"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="hsl(${hue} 82% 62%)"/><stop offset="1" stop-color="hsl(${(hue + 70) % 360} 78% 36%)"/></linearGradient></defs><rect width="640" height="420" fill="url(#g)"/><circle cx="510" cy="90" r="92" fill="white" opacity=".18"/><circle cx="128" cy="330" r="140" fill="black" opacity=".16"/><path d="M0 350 Q170 240 320 330 T640 270 V420 H0Z" fill="black" opacity=".14"/><rect x="34" y="34" width="572" height="352" rx="28" fill="none" stroke="white" stroke-opacity=".5" stroke-width="5"/><text x="320" y="222" text-anchor="middle" font-family="Arial,sans-serif" font-size="42" font-weight="800" fill="white">${safeTerm.toUpperCase()}</text><text x="320" y="270" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="600" fill="white" opacity=".82">PICTURE CLUE ${lock % 4 + 1}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
 
 const BASE_FOUR_PICS_PUZZLES: FourPicsPuzzle[] = [
   { id: 'fp-01', word: 'APPLE', hint: 'A common fruit', images: [image('apple', 1), image('apple-tree', 2), image('apple-pie', 3), image('apple-juice', 4)] },
@@ -26,6 +31,6 @@ export const FOUR_PICS_PUZZLES: FourPicsPuzzle[] = Array.from({ length: 42 }, (_
   BASE_FOUR_PICS_PUZZLES.map((puzzle, index) => ({
     ...puzzle,
     id: `${puzzle.id}-set-${variant + 1}`,
-    images: puzzle.images.map((url) => url.replace(/lock=\d+/, `lock=${variant * 50 + index + 1}`)) as [string, string, string, string],
+    images: puzzle.images.map((url) => url) as [string, string, string, string],
   }))
 ).flat();
