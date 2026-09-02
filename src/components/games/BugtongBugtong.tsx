@@ -39,8 +39,10 @@ export const BugtongBugtong: React.FC<BugtongBugtongProps> = ({ onBackToHub, aiC
   const [localQuestions, setLocalQuestions] = useState<BugtongQuestion[]>([]);
   const [localIndex, setLocalIndex] = useState(0);
   const [localScore, setLocalScore] = useState(0);
+  const [localCorrectCount, setLocalCorrectCount] = useState(0);
   const [localStreak, setLocalStreak] = useState(0);
   const [aiScore, setAiScore] = useState(0);
+  const [aiCorrectCount, setAiCorrectCount] = useState(0);
   const [aiStreak, setAiStreak] = useState(0);
   const [timeLeft, setTimeLeft] = useState(ROUND_SECONDS);
   const [typedAnswer, setTypedAnswer] = useState('');
@@ -49,13 +51,13 @@ export const BugtongBugtong: React.FC<BugtongBugtongProps> = ({ onBackToHub, aiC
   const [localFinished, setLocalFinished] = useState(false);
   const [roomQuestion, setRoomQuestion] = useState<PublicQuestion | null>(null);
   const [roomIndex, setRoomIndex] = useState(0);
-  const [roomTotal, setRoomTotal] = useState(15);
+  const [roomTotal, setRoomTotal] = useState(10);
   const [roomStatus, setRoomStatus] = useState<'playing' | 'round_end' | 'game_over'>('playing');
   const [roomLeaderboard, setRoomLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [roomBanner, setRoomBanner] = useState('');
   const [roomResult, setRoomResult] = useState<{ correct: boolean; correctIndex: number; points: number } | null>(null);
 
-  const shuffleQuestions = () => [...BUGTONG_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 15);
+  const shuffleQuestions = () => [...BUGTONG_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 10);
   const currentLocalQuestion = localQuestions[localIndex];
   const question = isMultiplayer ? roomQuestion : currentLocalQuestion;
   const currentResult = isMultiplayer ? roomResult : answerResult;
@@ -114,11 +116,11 @@ export const BugtongBugtong: React.FC<BugtongBugtongProps> = ({ onBackToHub, aiC
     const delay = aiConfig.difficulty === 'easy' ? 5000 : aiConfig.difficulty === 'extreme' ? 2200 : 3500;
     const timer = window.setTimeout(() => {
       const correct = Math.random() < accuracy;
-      setAiScore((score) => score + (correct ? 100 + timeLeft * 5 : 0));
+      setAiCorrectCount((count) => count + (correct ? 1 : 0));
       setAiStreak((streak) => correct ? streak + 1 : 0);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [aiConfig, isMultiplayer, localFinished, currentResult, question, timeLeft]);
+  }, [aiConfig, isMultiplayer, localFinished, currentResult, question]);
 
   useEffect(() => {
     if (localFinished && user) {
@@ -136,9 +138,8 @@ export const BugtongBugtong: React.FC<BugtongBugtongProps> = ({ onBackToHub, aiC
     const localQuestion = currentLocalQuestion;
     if (!localQuestion) return;
     const correct = index === localQuestion.correctIndex;
-    const points = correct ? 100 + timeLeft * 5 + (localStreak > 0 ? localStreak * 20 : 0) : 0;
-    setAnswerResult({ correct, correctIndex: localQuestion.correctIndex, points });
-    setLocalScore((score) => score + points);
+    setAnswerResult({ correct, correctIndex: localQuestion.correctIndex, points: 0 });
+    setLocalCorrectCount((count) => count + (correct ? 1 : 0));
     setLocalStreak((streak) => correct ? streak + 1 : 0);
     setSelectedAnswer(index >= 0 ? index : null);
   };
@@ -150,7 +151,11 @@ export const BugtongBugtong: React.FC<BugtongBugtongProps> = ({ onBackToHub, aiC
   };
 
   const advanceLocal = () => {
-    if (localIndex >= localQuestions.length - 1) setLocalFinished(true);
+    if (localIndex >= localQuestions.length - 1) {
+      setLocalScore(localCorrectCount * 10);
+      setAiScore(aiCorrectCount * 10);
+      setLocalFinished(true);
+    }
     else {
       setLocalIndex((index) => index + 1);
       setTimeLeft(ROUND_SECONDS);
@@ -160,11 +165,19 @@ export const BugtongBugtong: React.FC<BugtongBugtongProps> = ({ onBackToHub, aiC
     }
   };
 
+  useEffect(() => {
+    if (isMultiplayer || !currentResult || localFinished) return undefined;
+    const timer = window.setTimeout(advanceLocal, 1400);
+    return () => window.clearTimeout(timer);
+  }, [isMultiplayer, currentResult, localFinished, localIndex]);
+
   const resetLocal = () => {
     setLocalQuestions(shuffleQuestions());
     setLocalIndex(0);
     setLocalScore(0);
+    setLocalCorrectCount(0);
     setAiScore(0);
+    setAiCorrectCount(0);
     setLocalStreak(0);
     setAiStreak(0);
     setLocalFinished(false);
@@ -196,7 +209,6 @@ export const BugtongBugtong: React.FC<BugtongBugtongProps> = ({ onBackToHub, aiC
         </div>
         <form onSubmit={submitTypedAnswer} className="mx-auto mt-5 flex max-w-sm gap-2"><input value={typedAnswer} onChange={(event) => setTypedAnswer(event.target.value.slice(0, 1).toUpperCase())} maxLength={1} disabled={Boolean(currentResult)} placeholder="Type A, B, C, or D" className="min-w-0 flex-1 rounded-xl border border-slate-300 bg-white px-3 py-2 text-center font-black uppercase outline-none focus:border-amber-500 dark:border-slate-700 dark:bg-slate-900" /><button type="submit" disabled={Boolean(currentResult)} className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-black text-white disabled:opacity-50">Submit</button></form>
         {currentResult && <div className={`mx-auto mt-5 flex max-w-xl items-center justify-center gap-2 rounded-2xl p-3 text-sm font-black ${currentResult.correct ? 'bg-emerald-500/15 text-emerald-600' : 'bg-rose-500/15 text-rose-600'}`}>{currentResult.correct ? <CheckCircle2 className="h-5 w-5" /> : <XCircle className="h-5 w-5" />} {currentResult.correct ? `Tama! +${currentResult.points} puntos` : `Sagot: ${answerOptions[currentResult.correctIndex]}`}</div>}
-        {!isMultiplayer && currentResult && !localFinished && <button type="button" onClick={advanceLocal} className="mx-auto mt-4 flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-black text-white dark:bg-white dark:text-slate-900">Next Bugtong <RotateCcw className="h-4 w-4" /></button>}
         {localFinished && <div className="mt-5 space-y-3 text-center"><Trophy className="mx-auto h-10 w-10 text-amber-500" /><h3 className="text-2xl font-black">{localScore >= aiScore ? 'Panalo ka!' : 'Mas mabilis ang AI!'}</h3><p className="text-sm text-slate-500">You {localScore} pts • AI {aiScore} pts</p><button type="button" onClick={resetLocal} className="mx-auto flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-black text-white"><RotateCcw className="h-4 w-4" /> Shuffle Rematch</button></div>}
       </main>
 

@@ -128,14 +128,15 @@ export interface ServerTriviaGame {
 }
 
 interface ServerBugtongGame {
-    playerTeams: Map<string, 'red' | 'blue'>;
-    teamScores: { red: number; blue: number };
-    teamMode: UnoTeamMode;
   questions: BugtongQuestion[];
   currentIndex: number;
   timeLeft: number;
   playerScores: Map<string, number>;
+  playerCorrectCounts: Map<string, number>;
   playerAnswers: Map<string, { optionIndex: number; isCorrect: boolean; points: number }>;
+  playerTeams: Map<string, 'red' | 'blue'>;
+  teamScores: { red: number; blue: number };
+  teamMode: UnoTeamMode;
   timerInterval?: NodeJS.Timeout;
   status: 'playing' | 'round_end' | 'game_over';
   winner?: { id: string; name: string; avatar: string; score: number } | null;
@@ -964,12 +965,14 @@ function broadcastTriviaState(room: ServerRoom, banner?: string) {
 function initBugtongGame(room: ServerRoom) {
   clearAllRoomTimers(room);
   const activePlayers = room.state.players.filter(p => p.isConnected);
-  const shuffled = [...BUGTONG_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 15);
+  const shuffled = [...BUGTONG_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 10);
   const playerScores = new Map<string, number>();
+  const playerCorrectCounts = new Map<string, number>();
   const playerTeams = new Map<string, 'red' | 'blue'>();
   const rawTeamMode = room.settings.unoTeamMode || 'ffa';
   activePlayers.forEach((player, index) => {
     playerScores.set(player.id, 0);
+    playerCorrectCounts.set(player.id, 0);
     playerTeams.set(player.id, index % 2 === 0 ? 'red' : 'blue');
   });
   room.bugtongGame = {
@@ -977,6 +980,7 @@ function initBugtongGame(room: ServerRoom) {
     currentIndex: 0,
     timeLeft: 20,
     playerScores,
+    playerCorrectCounts,
     playerAnswers: new Map(),
     playerTeams,
     teamScores: { red: 0, blue: 0 },
@@ -1011,7 +1015,14 @@ function endBugtongRound(room: ServerRoom) {
     const active = room.state.players.filter(player => player.isConnected);
     if (game.currentIndex >= game.questions.length - 1) {
       game.status = 'game_over';
-      const rankings = active.map(player => ({ id: player.id, name: player.username, avatar: player.avatar, score: game.playerScores.get(player.id) || 0 })).sort((a, b) => b.score - a.score);
+      const rankings = active.map(player => {
+        const score = (game.playerCorrectCounts.get(player.id) || 0) * 10;
+        game.playerScores.set(player.id, score);
+        const team = game.playerTeams.get(player.id);
+        if (team) game.teamScores[team] += score;
+        player.score = (player.score || 0) + score;
+        return { id: player.id, name: player.username, avatar: player.avatar, score };
+      }).sort((a, b) => b.score - a.score);
       game.winner = rankings[0] || null;
       broadcastBugtongState(room, game.winner ? `Panalo si ${game.winner.name}!` : 'Tapos na ang laro!');
       return;
@@ -2307,10 +2318,8 @@ io.on('connection', (socket: Socket) => {
     const question = game.questions[game.currentIndex];
     const validIndex = Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex <= 3;
     const isCorrect = validIndex && optionIndex === question.correctIndex;
-    const earned = isCorrect ? 100 + game.timeLeft * 5 : 0;
-    game.playerScores.set(currentPlayerId, (game.playerScores.get(currentPlayerId) || 0) + earned);
-    const team = game.playerTeams.get(currentPlayerId);
-    if (team) game.teamScores[team] += earned;
+    const earned = 0;
+    if (isCorrect) game.playerCorrectCounts.set(currentPlayerId, (game.playerCorrectCounts.get(currentPlayerId) || 0) + 1);
     game.playerAnswers.set(currentPlayerId, { optionIndex: validIndex ? optionIndex : -1, isCorrect, points: earned });
     socket.emit('bugtong:answer_result', { isCorrect, points: earned, correctIndex: question.correctIndex });
     const activeCount = room.state.players.filter(player => player.isConnected).length;

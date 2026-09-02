@@ -112,15 +112,6 @@ const AI_GAMES: AiGameOption[] = [
   },
   {
     id: 'chess_game',
-    name: '8 Ball Pool',
-    tagline: 'Line up a legendary break, control the cue angle, and outplay the AI at the table',
-    icon: Swords,
-    accentColor: 'from-emerald-600 to-cyan-600',
-    badge: 'Table Clash',
-    category: 'Cue Sport',
-  },
-  {
-    id: 'chess_game',
     name: 'Chess',
     tagline: 'Think ahead and outmaneuver the AI with pace, traps, and classic strategic play',
     icon: ShieldCheck,

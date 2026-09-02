@@ -129,13 +129,6 @@ const ALL_GAME_MODES: Array<{
   },
   {
     id: 'chess_game',
-    label: '8 Ball Pool',
-    icon: Swords,
-    badge: 'Cue Sport',
-    badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300',
-  },
-  {
-    id: 'chess_game',
     label: 'Chess',
     icon: Brain,
     badge: 'Strategy',
