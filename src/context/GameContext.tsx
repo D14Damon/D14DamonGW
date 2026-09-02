@@ -319,10 +319,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: user.username,
           avatar: user.avatar,
           color: user.color,
+          cosmetics: user.cosmetics,
         },
       });
     }
-  }, [user?.id, user?.username, user?.avatar, user?.color]);
+  }, [user?.id, user?.username, user?.avatar, user?.color, user?.cosmetics]);
 
 
   const fetchPublicRooms = useCallback(() => {

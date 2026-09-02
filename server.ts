@@ -2514,7 +2514,7 @@ io.on('connection', (socket: Socket) => {
   });
 
   // 10. Live Profile & Avatar Update
-  socket.on('player:profile_update', ({ player }: { player: { id: string; username: string; avatar: string; color?: string } }) => {
+  socket.on('player:profile_update', ({ player }: { player: { id: string; username: string; avatar: string; color?: string; cosmetics?: Player['cosmetics'] } }) => {
     if (!player || !player.id) return;
 
     // Update in current active room
@@ -2526,6 +2526,7 @@ io.on('connection', (socket: Socket) => {
           p.username = player.username || p.username;
           p.avatar = player.avatar || p.avatar;
           if (player.color) p.color = player.color;
+          if (player.cosmetics) p.cosmetics = player.cosmetics;
           io.to(room.id).emit('room:state', sanitizeStateForClient(room));
           saveRoomToFirestore(room).catch(() => {});
         }

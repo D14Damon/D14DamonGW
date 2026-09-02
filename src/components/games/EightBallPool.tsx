@@ -31,7 +31,10 @@ interface BallInfo {
   color: string;
   label: string;
   stripe?: boolean;
+  group?: 'solid' | 'stripe' | '8-ball' | 'cue';
 }
+
+type BallGroup = 'solids' | 'stripes';
 
 const W = 800;
 const H = 450;
@@ -41,22 +44,22 @@ const CUSHION = 40;
 const POCKET_RADIUS = 22;
 
 const BALL_DATA: BallInfo[] = [
-  { id: 0, color: '#ffffff', label: 'CUE' },
-  { id: 1, color: '#ffd100', label: '1' },
-  { id: 2, color: '#0066cc', label: '2' },
-  { id: 3, color: '#ff3333', label: '3' },
-  { id: 4, color: '#9933cc', label: '4' },
-  { id: 5, color: '#ff8800', label: '5' },
-  { id: 6, color: '#009933', label: '6' },
-  { id: 7, color: '#993300', label: '7' },
-  { id: 8, color: '#000000', label: '8' },
-  { id: 9, color: '#ffd100', label: '9', stripe: true },
-  { id: 10, color: '#0066cc', label: '10', stripe: true },
-  { id: 11, color: '#ff3333', label: '11', stripe: true },
-  { id: 12, color: '#9933cc', label: '12', stripe: true },
-  { id: 13, color: '#ff8800', label: '13', stripe: true },
-  { id: 14, color: '#009933', label: '14', stripe: true },
-  { id: 15, color: '#993300', label: '15', stripe: true },
+  { id: 0, color: '#ffffff', label: 'CUE', group: 'cue' },
+  { id: 1, color: '#ffd100', label: '1', group: 'solid' },
+  { id: 2, color: '#0066cc', label: '2', group: 'solid' },
+  { id: 3, color: '#ff3333', label: '3', group: 'solid' },
+  { id: 4, color: '#9933cc', label: '4', group: 'solid' },
+  { id: 5, color: '#ff8800', label: '5', group: 'solid' },
+  { id: 6, color: '#009933', label: '6', group: 'solid' },
+  { id: 7, color: '#993300', label: '7', group: 'solid' },
+  { id: 8, color: '#000000', label: '8', group: '8-ball' },
+  { id: 9, color: '#ffd100', label: '9', stripe: true, group: 'stripe' },
+  { id: 10, color: '#0066cc', label: '10', stripe: true, group: 'stripe' },
+  { id: 11, color: '#ff3333', label: '11', stripe: true, group: 'stripe' },
+  { id: 12, color: '#9933cc', label: '12', stripe: true, group: 'stripe' },
+  { id: 13, color: '#ff8800', label: '13', stripe: true, group: 'stripe' },
+  { id: 14, color: '#009933', label: '14', stripe: true, group: 'stripe' },
+  { id: 15, color: '#993300', label: '15', stripe: true, group: 'stripe' },
 ];
 
 const POCKETS = [
@@ -69,7 +72,7 @@ const POCKETS = [
 ];
 
 export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiConfig }) => {
-  const { updateStats } = useAuth();
+  const { user, updateStats } = useAuth();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [turn, setTurn] = useState<'player' | 'ai'>('player');
@@ -82,11 +85,25 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
   const [gameOver, setGameOver] = useState(false);
   const [winner, setWinner] = useState<'player' | 'ai' | null>(null);
   const [currentPowerPct, setCurrentPowerPct] = useState(0);
+  const [powerBarValue, setPowerBarValue] = useState(62);
   const [matchCount, setMatchCount] = useState(1);
+  const [playerGroup, setPlayerGroup] = useState<BallGroup | null>(null);
+  const [aiGroup, setAiGroup] = useState<BallGroup | null>(null);
+  const [legalShot, setLegalShot] = useState(true);
+  const [calledPocket, setCalledPocket] = useState<number | null>(null);
+  const [selectedSpin, setSelectedSpin] = useState('Center');
 
   const hasRecordedStatsRef = useRef(false);
+  const powerBarRef = useRef(62);
+  powerBarRef.current = powerBarValue;
   const turnRef = useRef<'player' | 'ai'>('player');
   turnRef.current = turn;
+  const playerGroupRef = useRef<BallGroup | null>(null);
+  const aiGroupRef = useRef<BallGroup | null>(null);
+  const legalShotRef = useRef(true);
+  const breakPendingRef = useRef(true);
+  const shotRailCountRef = useRef(0);
+  const shotCueContactRef = useRef(false);
 
   // Physics engine refs
   const engineRef = useRef<Matter.Engine | null>(null);
@@ -95,6 +112,8 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
   const aimingRef = useRef(false);
   const startPosRef = useRef({ x: 0, y: 0 });
   const aimVecRef = useRef({ dx: 0, dy: 0, power: 0, angle: 0 });
+  const sideSpinRef = useRef({ x: 0, y: 0 });
+  const calledPocketRef = useRef<number | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const wasMovingRef = useRef(false);
   const pocketedThisShotRef = useRef<BallInfo[]>([]);
@@ -104,6 +123,24 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
     return ballsRef.current.some(
       (b) => Math.abs(b.velocity.x) > 0.08 || Math.abs(b.velocity.y) > 0.08
     );
+  }, []);
+
+  const isBallInGroup = useCallback((ball: BallInfo, group: BallGroup | null) => {
+    if (!group) return true;
+    return ball.group === 'solid' ? group === 'solids' : ball.group === 'stripe' ? group === 'stripes' : true;
+  }, []);
+
+  const setGroups = useCallback((player: BallGroup, ai: BallGroup) => {
+    playerGroupRef.current = player;
+    aiGroupRef.current = ai;
+    setPlayerGroup(player);
+    setAiGroup(ai);
+  }, []);
+
+  const markIllegalShot = useCallback((message: string) => {
+    legalShotRef.current = false;
+    setLegalShot(false);
+    setStatusMessage(message);
   }, []);
 
   // Helper: create a ball body
@@ -164,6 +201,18 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
     setPocketedByAi([]);
     setTurn('player');
     setIsScratch(false);
+    setPlayerGroup(null);
+    setAiGroup(null);
+    setLegalShot(true);
+    setCalledPocket(null);
+    setSelectedSpin('Center');
+    playerGroupRef.current = null;
+    aiGroupRef.current = null;
+    legalShotRef.current = true;
+    calledPocketRef.current = null;
+    breakPendingRef.current = true;
+    shotRailCountRef.current = 0;
+    shotCueContactRef.current = false;
     setStatusMessage('Rack set! Drag from cue ball to aim & shoot.');
     hasRecordedStatsRef.current = false;
   }, [createBallBody]);
@@ -221,8 +270,13 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
       for (let i = 0; i < pairs.length; i += 1) {
         const { bodyA, bodyB } = pairs[i];
         if (bodyA.label === 'ball' && bodyB.label === 'ball') {
+          const cue = cueBallRef.current;
+          if (cue && (bodyA === cue || bodyB === cue)) {
+            shotCueContactRef.current = true;
+          }
           soundManager.playPop();
         } else if (bodyA.label === 'ball' || bodyB.label === 'ball') {
+          if (wasMovingRef.current) shotRailCountRef.current += 1;
           soundManager.playTick();
         }
       }
@@ -293,15 +347,17 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
     const checkPockets = () => {
       const balls = ballsRef.current;
       const cue = cueBallRef.current;
+      const currentTurn = turnRef.current;
 
       for (let i = balls.length - 1; i >= 0; i -= 1) {
         const b = balls[i];
         const data = (b as unknown as { data: BallInfo }).data;
 
-        for (const p of POCKETS) {
+        for (const [pocketIndex, p] of POCKETS.entries()) {
           const d = Math.hypot(b.position.x - p.x, b.position.y - p.y);
           if (d < POCKET_RADIUS - BALL_RADIUS / 2) {
             if (data.id === 0) {
+              markIllegalShot('Scratch! Cue ball sunk. Ball in hand after the shot.');
               // SCRATCH: Respawn cue ball
               soundManager.playWrongGuess();
               setIsScratch(true);
@@ -321,7 +377,40 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
               balls.splice(i, 1);
               pocketedThisShotRef.current.push(data);
 
-              const currentTurn = turnRef.current;
+              if (data.group && data.group !== '8-ball' && data.group !== 'cue') {
+                const candidateGroup = data.group === 'solid' ? 'solids' : 'stripes';
+                if (currentTurn === 'player') {
+                  if (!playerGroupRef.current && !aiGroupRef.current) {
+                    setGroups(candidateGroup, candidateGroup === 'solids' ? 'stripes' : 'solids');
+                  } else if (playerGroupRef.current && !isBallInGroup(data, playerGroupRef.current)) {
+                    markIllegalShot('Illegal shot: you pocketed the opponent group. Turn passes.');
+                  }
+                } else if (!aiGroupRef.current && !playerGroupRef.current) {
+                  setGroups(candidateGroup === 'solids' ? 'stripes' : 'solids', candidateGroup);
+                } else if (aiGroupRef.current && !isBallInGroup(data, aiGroupRef.current)) {
+                  markIllegalShot('Illegal shot: opponent pocketed the wrong group. Turn passes.');
+                }
+              }
+
+              if (data.id === 8) {
+                const activeGroup = currentTurn === 'player' ? playerGroupRef.current : aiGroupRef.current;
+                const remainingGroupBalls = balls.filter((ball) => {
+                  const ballData = (ball as unknown as { data: BallInfo }).data;
+                  return ballData.id !== 0 && ballData.id !== 8 && isBallInGroup(ballData, activeGroup);
+                }).length;
+                const calledCorrectPocket = calledPocketRef.current === null || calledPocketRef.current === pocketIndex;
+                const wonByPlayer = currentTurn === 'player' && remainingGroupBalls === 0 && legalShotRef.current && calledCorrectPocket;
+                setGameOver(true);
+                setWinner(wonByPlayer ? 'player' : 'ai');
+                setStatusMessage(
+                  wonByPlayer
+                    ? 'Called 8-ball sunk! You Won the Match! (+300 PTS)'
+                    : calledCorrectPocket
+                      ? '8-ball sunk before clearing the group. Match lost.'
+                      : 'Wrong pocket called for the 8-ball. Match lost.'
+                );
+              }
+
               if (currentTurn === 'player') {
                 setPocketedByPlayer((prev) => [...prev, data]);
                 setPlayerScore((prev) => prev + (data.id === 8 ? 200 : 50));
@@ -330,17 +419,6 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
                 setAiScore((prev) => prev + (data.id === 8 ? 200 : 50));
               }
 
-              // 8-Ball Sunk Check
-              if (data.id === 8) {
-                const wonByPlayer = currentTurn === 'player';
-                setGameOver(true);
-                setWinner(wonByPlayer ? 'player' : 'ai');
-                setStatusMessage(
-                  wonByPlayer
-                    ? '8-Ball sunk! You Won the Match! (+300 PTS)'
-                    : '8-Ball sunk by opponent. Match ended.'
-                );
-              }
             }
             break;
           }
@@ -358,15 +436,44 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
       // Check when all balls come to rest after a shot
       if (wasMovingRef.current && !currentlyMoving) {
         wasMovingRef.current = false;
-        const sunkCount = pocketedThisShotRef.current.length;
+        const shotSummary = pocketedThisShotRef.current.slice();
+        const sunkCount = shotSummary.length;
         pocketedThisShotRef.current = [];
+
+        if (breakPendingRef.current) {
+          breakPendingRef.current = false;
+          if (sunkCount === 0 && shotRailCountRef.current < 4) {
+            markIllegalShot('Illegal break: pocket a ball or drive at least four rails. Turn passes.');
+          }
+        }
+        if (!shotCueContactRef.current) {
+          markIllegalShot('Foul: the cue ball did not contact an object ball. Turn passes.');
+        }
+        shotRailCountRef.current = 0;
+        shotCueContactRef.current = false;
+
+        if (!legalShotRef.current) {
+          const nextTurn = turnRef.current === 'player' ? 'ai' : 'player';
+          setTurn(nextTurn);
+          setStatusMessage(
+            nextTurn === 'player'
+              ? 'Illegal shot! Your turn is over. Aim again.'
+              : 'Illegal shot! Opponent takes over.'
+          );
+          setLegalShot(true);
+          legalShotRef.current = true;
+          return;
+        }
 
         // If player pocketed a ball (and didn't scratch), they get another turn!
         if (sunkCount > 0) {
+          const hasTargetBall = shotSummary.some((ball) => ball.id !== 8 && ball.group !== 'cue');
           setStatusMessage(
             turnRef.current === 'player'
-              ? `Nice shot! Sunk ${sunkCount} ball(s) — take another turn!`
-              : `Opponent sunk ${sunkCount} ball(s) and keeps shooting.`
+              ? hasTargetBall
+                ? 'Nice shot! Keep your run and set up the next pocket.'
+                : 'Nice shot! Take another turn.'
+              : 'Opponent sunk a ball and keeps shooting.'
           );
         } else {
           // Switch turn if AI mode enabled
@@ -387,9 +494,11 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
 
       // 1. Table Bed Felt (Emerald Velvet with Vignette)
       const feltGrad = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, W / 1.5);
-      feltGrad.addColorStop(0, '#2d9c57');
-      feltGrad.addColorStop(0.8, '#207e45');
-      feltGrad.addColorStop(1, '#156133');
+      const midnightFelt = user?.cosmetics?.equipped.eight_ball_pool === 'pool_midnight';
+      const emeraldFelt = user?.cosmetics?.equipped.eight_ball_pool === 'pool_emerald';
+      feltGrad.addColorStop(0, midnightFelt ? '#1d4ed8' : emeraldFelt ? '#34d399' : '#2d9c57');
+      feltGrad.addColorStop(0.8, midnightFelt ? '#1e3a8a' : emeraldFelt ? '#047857' : '#207e45');
+      feltGrad.addColorStop(1, midnightFelt ? '#172554' : emeraldFelt ? '#064e3b' : '#156133');
       ctx.fillStyle = feltGrad;
       ctx.fillRect(0, 0, W, H);
 
@@ -540,7 +649,7 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
       World.clear(world, false);
       Engine.clear(engine);
     };
-  }, [setupRack, createBallBody, checkBallsMoving, aiConfig]);
+  }, [setupRack, createBallBody, checkBallsMoving, aiConfig, user?.cosmetics?.equipped.eight_ball_pool]);
 
   // Shooting Action: Apply impulse force
   const executeShot = useCallback((angle: number, power: number) => {
@@ -550,11 +659,18 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
     soundManager.playPop();
     const forceMagnitude = 0.0032 * power;
     const shotAngle = angle + Math.PI; // Impulse is in direction of shot
+    const { x: spinX, y: spinY } = sideSpinRef.current;
+    shotRailCountRef.current = 0;
+    shotCueContactRef.current = false;
 
     Body.applyForce(cue, cue.position, {
-      x: Math.cos(shotAngle) * forceMagnitude,
-      y: Math.sin(shotAngle) * forceMagnitude,
+      x: Math.cos(shotAngle) * forceMagnitude + spinX * 0.0015,
+      y: Math.sin(shotAngle) * forceMagnitude + spinY * 0.0015,
     });
+
+    if (Math.hypot(spinX, spinY) > 0.05) {
+      setStatusMessage('Side spin applied — the cue ball will curve slightly off the line.');
+    }
 
     wasMovingRef.current = true;
     setCurrentPowerPct(0);
@@ -589,22 +705,29 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
     const { x, y } = getCanvasCoords(e);
     const dist = Math.hypot(x - cue.position.x, y - cue.position.y);
 
-    // Click near cue ball or anywhere on table to initiate aim
+    // Tap anywhere on the table to aim at a point; the power bar controls shot strength.
+    const aimAngle = Math.atan2(y - cue.position.y, x - cue.position.x);
+    const power = powerBarRef.current;
     aimingRef.current = true;
     startPosRef.current = { x: cue.position.x, y: cue.position.y };
+    aimVecRef.current = { dx: x - cue.position.x, dy: y - cue.position.y, power, angle: aimAngle };
+    setCurrentPowerPct(power);
+    setStatusMessage(dist < 80 ? 'Aim locked. Drag or tap to adjust line, then release to shoot.' : 'Tap or drag to aim, then release to shoot.');
     soundManager.playTick();
   };
 
   const handlePointerMove = (e: React.MouseEvent | React.TouchEvent) => {
     if (!aimingRef.current) return;
-    const { x, y } = getCanvasCoords(e);
-    const dx = x - startPosRef.current.x;
-    const dy = y - startPosRef.current.y;
-    const power = Math.min(Math.hypot(dx, dy), 160);
-    const angle = Math.atan2(dy, dx);
+    const cue = cueBallRef.current;
+    if (!cue) return;
 
+    const { x, y } = getCanvasCoords(e);
+    const dx = x - cue.position.x;
+    const dy = y - cue.position.y;
+    const power = powerBarRef.current;
+    const angle = Math.atan2(dy, dx);
     aimVecRef.current = { dx, dy, power, angle };
-    setCurrentPowerPct(Math.round((power / 160) * 100));
+    setCurrentPowerPct(power);
   };
 
   const handlePointerUp = () => {
@@ -723,6 +846,66 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
               <span className="text-xl">🎱</span>
             </div>
             <div>
+
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold">Cue Ball Spin</span>
+                  <span className="text-slate-400 text-[10px]">{sideSpinRef.current.x === 0 && sideSpinRef.current.y === 0 ? 'Center' : 'Applied'}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1 max-w-[132px] mx-auto">
+                  {[
+                    { label: 'Top', x: 0, y: -1 },
+                    { label: 'Left', x: -1, y: 0 },
+                    { label: 'Center', x: 0, y: 0 },
+                    { label: 'Right', x: 1, y: 0 },
+                    { label: 'Back', x: 0, y: 1 },
+                  ].map((spin) => (
+                    <button
+                      key={spin.label}
+                      type="button"
+                      onClick={() => {
+                        sideSpinRef.current = { x: spin.x, y: spin.y };
+                        setSelectedSpin(spin.label);
+                        setStatusMessage(`${spin.label} cue-ball spin selected.`);
+                      }}
+                      className={`min-h-7 rounded-lg border text-[10px] font-bold transition-colors ${
+                        selectedSpin === spin.label
+                          ? 'bg-emerald-500/30 border-emerald-400 text-emerald-200'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      } ${spin.label === 'Center' ? 'col-start-2' : ''}`}
+                    >
+                      {spin.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold">Call 8-Ball Pocket</span>
+                  <span className="text-amber-300 text-[10px] font-black">{calledPocket === null ? 'Required' : `Pocket ${calledPocket + 1}`}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {POCKETS.map((_, index) => (
+                    <button
+                      key={`call-pocket-${index}`}
+                      type="button"
+                      onClick={() => {
+                        calledPocketRef.current = index;
+                        setCalledPocket(index);
+                        setStatusMessage(`Pocket ${index + 1} called for the 8-ball.`);
+                      }}
+                      className={`h-7 rounded-lg border text-[10px] font-bold ${
+                        calledPocket === index
+                          ? 'bg-amber-500/30 border-amber-400 text-amber-200'
+                          : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {index + 1}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-black text-white tracking-tight">Classic 8-Ball Pool</h2>
                 <span className="px-2 py-0.5 text-[10px] font-black rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40">
@@ -895,13 +1078,38 @@ export const EightBallPool: React.FC<EightBallPoolProps> = ({ onBackToHub, aiCon
             </h3>
 
             <div className="space-y-2 text-xs">
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-white font-bold">Power Bar</span>
+                  <span className="text-amber-300 font-black">{powerBarValue}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={10}
+                  max={100}
+                  step={1}
+                  value={powerBarValue}
+                  onChange={(event) => {
+                    const value = Number(event.target.value);
+                    setPowerBarValue(value);
+                    powerBarRef.current = value;
+                    setCurrentPowerPct(value);
+                  }}
+                  className="w-full accent-amber-400"
+                  aria-label="Pool shot power"
+                />
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Drag the bar left or right to set shot force, then tap anywhere on the table to aim.
+                </p>
+              </div>
+
               <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1.5">
                 <span className="text-white font-bold block">How to Play</span>
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  1. Click and drag backward from the white cue ball to aim.
+                  1. Tap or click the table to aim at the direction you want the cue ball to travel.
                 </p>
                 <p className="text-slate-400 text-[11px] leading-relaxed">
-                  2. Further drag increases shot power.
+                  2. Use the side power bar to determine how hard the shot is.
                 </p>
                 <p className="text-slate-400 text-[11px] leading-relaxed">
                   3. Release to strike the cue ball. Sinking balls awards points!

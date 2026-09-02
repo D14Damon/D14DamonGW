@@ -884,6 +884,7 @@ export const UnoParty: React.FC<UnoPartyProps> = ({ onBackToHub, aiConfig = null
     isJustDrawn: boolean = false
   ) => {
     const colorStyle = COLOR_MAP[card.color];
+    const unoNeonSkin = user?.cosmetics?.equipped.uno_party === 'uno_neon';
     return (
       <motion.div
         key={card.id}
@@ -892,7 +893,7 @@ export const UnoParty: React.FC<UnoPartyProps> = ({ onBackToHub, aiConfig = null
         onClick={isPlayable ? onClick : undefined}
         className={`relative select-none transition-shadow rounded-2xl border-2 flex flex-col items-center justify-between p-2 shadow-lg cursor-pointer overflow-hidden ${
           isCompact ? 'w-14 h-20 text-xs' : 'w-20 sm:w-24 h-32 sm:h-36 text-sm'
-        } ${colorStyle.bg} ${
+        } ${colorStyle.bg} ${unoNeonSkin ? 'ring-2 ring-cyan-300/80 shadow-cyan-400/30' : ''} ${
           isJustDrawn && isPlayable
             ? 'ring-4 ring-amber-400 scale-105 border-white shadow-2xl shadow-amber-500/50'
             : isPlayable

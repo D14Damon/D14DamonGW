@@ -14,6 +14,7 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth, ADMIN_EMAILS } from '../context/AuthContext';
 import { AvatarSelector } from './AvatarSelector';
@@ -21,6 +22,7 @@ import { AvatarRenderer } from './AvatarRenderer';
 import { AdminPanel } from './AdminPanel';
 import { soundManager } from '../utils/soundEffects';
 import { NgipBadge, NgipName } from './NgipBadge';
+import { SkinShopModal } from './SkinShopModal';
 
 export const ProfileModal: React.FC<{
   isOpen: boolean;
@@ -53,6 +55,7 @@ export const ProfileModal: React.FC<{
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showSkinShop, setShowSkinShop] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -298,6 +301,15 @@ export const ProfileModal: React.FC<{
             </div>
           )}
 
+          <button
+            type="button"
+            onClick={() => setShowSkinShop(true)}
+            className="w-full flex items-center justify-center gap-2 rounded-2xl border border-amber-300/60 bg-amber-50 px-4 py-3 text-xs font-black text-amber-800 transition-colors hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-200 dark:hover:bg-amber-950/60"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Open Arcade Skin Shop
+          </button>
+
           {/* Audio Settings */}
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -495,6 +507,8 @@ export const ProfileModal: React.FC<{
           </div>
         </div>
       </div>
+
+      <SkinShopModal isOpen={showSkinShop} onClose={() => setShowSkinShop(false)} />
 
       {/* Instant Account Deletion Confirmation Modal */}
       {showDeleteConfirm && (

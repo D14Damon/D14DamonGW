@@ -31,6 +31,14 @@ export type ArcadeGameMode =
   | 'ngip_mega_wheel'
   | 'ngip_vault_hacker';
 
+export type GameSkinId = 'classic' | 'uno_neon' | 'pool_midnight' | 'pool_emerald' | 'cyber_gold';
+
+export interface UserCosmetics {
+  owned: GameSkinId[];
+  equipped: Partial<Record<ArcadeGameMode, GameSkinId>>;
+  ownedUntil?: Partial<Record<GameSkinId, number>>;
+}
+
 // Currency Types (GW 4 Gems: Diamond, Amethyst, Jade, Ruby)
 export type CurrencyType = 'diamond' | 'amethyst' | 'jade' | 'ruby';
 
@@ -97,6 +105,7 @@ export interface Player {
   stats?: PlayerStats;
   wallet?: UserWallet;
   isNgip?: boolean;
+  cosmetics?: UserCosmetics;
 }
 
 export type UnoTeamMode = 'ffa' | '2v2' | '3v3' | '4v4' | '5v5';
@@ -301,6 +310,7 @@ export interface UserProfile {
   recentActivities?: PlayerActivity[];
   wallet?: UserWallet;
   lastNgipSalaryClaim?: string;
+  cosmetics?: UserCosmetics;
 }
 
 export interface FirebaseConfig {

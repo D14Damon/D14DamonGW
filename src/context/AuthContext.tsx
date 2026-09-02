@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, PlayerStats, FirebaseConfig, PlayerActivity } from '../types';
+import { UserProfile, PlayerStats, FirebaseConfig, PlayerActivity, ArcadeGameMode, GameSkinId, UserCosmetics } from '../types';
 import {
   loginWithGoogle,
   loginWithEmail,
@@ -24,6 +24,7 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 import { PRESET_AVATARS } from '../utils/avatarIcons';
 import { soundManager } from '../utils/soundEffects';
+import { INITIAL_DEFAULT_WALLET } from '../utils/currencyUtils';
 
 const STORAGE_KEY_USER = 'guess_what_current_user';
 export const ADMIN_EMAILS = [
@@ -62,6 +63,7 @@ interface AuthContextType {
   toggleAdminRole: () => void;
   toggleUserNgip: (targetUserId: string, ngipState: boolean) => Promise<void>;
   adminOverrideOtherUserStats: (targetUserId: string, newStats: Partial<PlayerStats>, level?: number) => Promise<void>;
+  purchaseOrEquipSkin: (mode: ArcadeGameMode, skinId: GameSkinId, durationDays?: 7 | 15 | 30) => boolean;
 }
 
 const DEFAULT_AVATARS = PRESET_AVATARS.map((a) => a.id);
@@ -113,6 +115,24 @@ function normalizeUserProfile(p: Partial<UserProfile> & { id: string; username: 
   const isAdmin = Boolean((p.isAdmin && isOwnerEmail) || isOwnerEmail);
   const isNgip = Boolean(isOwnerEmail || p.isNgip === true);
   const darkMode = typeof p.darkMode === 'boolean' ? p.darkMode : true;
+  const cosmetics: UserCosmetics = {
+    owned: Array.from(new Set([
+      'classic',
+      ...((p.cosmetics?.owned || []) as GameSkinId[]).filter((skinId) => {
+        if (skinId === 'classic') return true;
+        const expiresAt = p.cosmetics?.ownedUntil?.[skinId];
+        return typeof expiresAt === 'number' && expiresAt > Date.now();
+      }),
+    ])),
+    equipped: { ...(p.cosmetics?.equipped || {}) },
+    ownedUntil: { ...(p.cosmetics?.ownedUntil || {}) },
+  };
+
+  Object.entries(cosmetics.equipped).forEach(([mode, skinId]) => {
+    if (skinId && !cosmetics.owned.includes(skinId)) {
+      delete cosmetics.equipped[mode as ArcadeGameMode];
+    }
+  });
 
   return {
     id: p.id,
@@ -129,6 +149,8 @@ function normalizeUserProfile(p: Partial<UserProfile> & { id: string; username: 
     isAdmin,
     isNgip,
     darkMode,
+    wallet: p.wallet || INITIAL_DEFAULT_WALLET,
+    cosmetics,
   };
 }
 
@@ -308,7 +330,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             cloudProfile.stats?.wins === prev.stats?.wins &&
             cloudProfile.stats?.losses === prev.stats?.losses &&
             cloudProfile.stats?.gamesPlayed === prev.stats?.gamesPlayed &&
-            cloudProfile.stats?.wordsGuessed === prev.stats?.wordsGuessed
+            cloudProfile.stats?.wordsGuessed === prev.stats?.wordsGuessed &&
+            JSON.stringify(cloudProfile.cosmetics || {}) === JSON.stringify(prev.cosmetics || {})
           ) {
             return prev;
           }
@@ -1017,6 +1040,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const purchaseOrEquipSkin = (mode: ArcadeGameMode, skinId: GameSkinId, durationDays: 7 | 15 | 30 = 7): boolean => {
+    if (!user) return false;
+    const cosmetics = user.cosmetics || { owned: ['classic' as GameSkinId], equipped: {} };
+    const expiresAt = cosmetics.ownedUntil?.[skinId];
+    const isOwned = skinId === 'classic' || (cosmetics.owned.includes(skinId) && typeof expiresAt === 'number' && expiresAt > Date.now());
+    if (isOwned) {
+      saveUser({ ...user, cosmetics: { ...cosmetics, equipped: { ...cosmetics.equipped, [mode]: skinId } } });
+      return true;
+    }
+    const priceByDuration: Record<7 | 15 | 30, number> = { 7: 5000, 15: 10000, 30: 15000 };
+    const price = priceByDuration[durationDays];
+    if ((user.stats.totalScore || 0) < price) return false;
+    const nextOwned = Array.from(new Set([...cosmetics.owned, skinId]));
+    const nextOwnedUntil = { ...(cosmetics.ownedUntil || {}), [skinId]: Date.now() + durationDays * 24 * 60 * 60 * 1000 };
+    saveUser({
+      ...user,
+      stats: { ...user.stats, totalScore: user.stats.totalScore - price },
+      cosmetics: {
+        owned: nextOwned,
+        equipped: { ...cosmetics.equipped, [mode]: skinId },
+        ownedUntil: nextOwnedUntil,
+      },
+    });
+    return true;
+  };
+
   const connectCustomFirebase = (config: FirebaseConfig): boolean => {
     const success = initFirebaseService(config);
     setIsFirebaseConnected(success);
@@ -1058,6 +1107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         toggleAdminRole,
         toggleUserNgip,
         adminOverrideOtherUserStats,
+        purchaseOrEquipSkin,
       }}
     >
       {children}
