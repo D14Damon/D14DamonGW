@@ -30,6 +30,7 @@ import {
   Calculator,
   Building2,
   Crosshair,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   ArcadeGameMode,
@@ -84,6 +85,13 @@ const ALL_GAME_MODES: Array<{
     icon: Brain,
     badge: 'Filipino Riddles',
     badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300',
+  },
+  {
+    id: 'four_pics_one_word',
+    label: '4 Pics 1 Word',
+    icon: ImageIcon,
+    badge: 'Picture Guessing',
+    badgeColor: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/60 dark:text-cyan-300',
   },
   {
     id: 'anagram_rush',
@@ -224,7 +232,7 @@ export const Lobby: React.FC<LobbyProps> = ({
       allowHints,
       botPlayersEnabled: false,
       gameMode: selectedGameMode,
-      unoTeamMode: selectedGameMode === 'uno_party' || selectedGameMode === 'bugtong_bugtong' ? unoTeamMode : undefined,
+      unoTeamMode: selectedGameMode === 'uno_party' || selectedGameMode === 'bugtong_bugtong' || selectedGameMode === 'four_pics_one_word' ? unoTeamMode : undefined,
     };
 
     createRoom(settings, roomName.trim() || `${user?.username || 'Player'}'s Arena`);
@@ -524,12 +532,12 @@ export const Lobby: React.FC<LobbyProps> = ({
               </div>
 
               {/* Team mode selector for team-capable games */}
-              {(selectedGameMode === 'uno_party' || selectedGameMode === 'bugtong_bugtong') && (
+              {(selectedGameMode === 'uno_party' || selectedGameMode === 'bugtong_bugtong' || selectedGameMode === 'four_pics_one_word') && (
                 <div className="p-3.5 bg-rose-50/80 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-800/80 space-y-2.5 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                      <span>{selectedGameMode === 'bugtong_bugtong' ? 'Bugtong-Bugtong Team Battle Mode' : 'UNO Party Team Battle Mode'}</span>
+                      <span>{selectedGameMode === 'bugtong_bugtong' ? 'Bugtong-Bugtong Team Battle Mode' : selectedGameMode === 'four_pics_one_word' ? '4 Pics 1 Word Team Battle Mode' : 'UNO Party Team Battle Mode'}</span>
                     </label>
                     <span className="text-[10px] font-mono font-black uppercase text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/60 px-2 py-0.5 rounded-md border border-rose-300 dark:border-rose-700">
                       {unoTeamMode === 'ffa' ? 'Solo FFA' : unoTeamMode.toUpperCase()}
@@ -564,7 +572,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                   </div>
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-snug">
                     {unoTeamMode === 'ffa'
-                      ? `Free For All: Every player plays for themselves in ${selectedGameMode === 'bugtong_bugtong' ? 'Bugtong-Bugtong' : 'standard UNO'} rules.`
+                      ? `Free For All: Every player plays for themselves in ${selectedGameMode === 'bugtong_bugtong' ? 'Bugtong-Bugtong' : selectedGameMode === 'four_pics_one_word' ? '4 Pics 1 Word' : 'standard UNO'} rules.`
                       : `Team Mode (${unoTeamMode.toUpperCase()}): Red Team 🔴 vs Blue Team 🔵! Team scores are combined for the match.`}
                   </p>
                 </div>

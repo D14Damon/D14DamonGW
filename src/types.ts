@@ -10,6 +10,7 @@ export type ArcadeGameMode =
   | 'ai_sketch_guess'
   | 'trivia_dash'
   | 'bugtong_bugtong'
+  | 'four_pics_one_word'
   | 'anagram_rush'
   | 'emoji_charades'
   | 'speed_duel'

@@ -29,6 +29,7 @@ import {
 import { isValidEnglishWord, SYLLABLE_PROMPTS } from './src/utils/dictionary';
 import { EMOJI_PUZZLES } from './src/data/emojiPuzzles';
 import { BUGTONG_QUESTIONS, BugtongQuestion } from './src/data/bugtongData';
+import { FOUR_PICS_PUZZLES, FourPicsPuzzle } from './src/data/fourPicsData';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -142,6 +143,19 @@ interface ServerBugtongGame {
   winner?: { id: string; name: string; avatar: string; score: number } | null;
 }
 
+interface ServerFourPicsGame {
+  puzzles: FourPicsPuzzle[];
+  currentIndex: number;
+  timeLeft: number;
+  activeAnswererId: string | null;
+  scores: Map<string, number>;
+  correctCounts: Map<string, number>;
+  answers: Map<string, { answer: string; correct: boolean; points: number }>;
+  timerInterval?: NodeJS.Timeout;
+  status: 'playing' | 'round_end' | 'game_over';
+  winner?: { id: string; name: string; score: number } | null;
+}
+
 export interface ServerBombGame {
   prompt: string;
   timeLeft: number;
@@ -218,6 +232,7 @@ interface ServerRoom {
   unoGame?: ServerUnoGame;
   triviaGame?: ServerTriviaGame;
   bugtongGame?: ServerBugtongGame;
+  fourPicsGame?: ServerFourPicsGame;
   bombGame?: ServerBombGame;
   duelGame?: ServerDuelGame;
   anagramGame?: ServerAnagramGame;
@@ -683,6 +698,10 @@ function clearAllRoomTimers(room: ServerRoom) {
     clearInterval(room.bugtongGame.timerInterval);
     room.bugtongGame.timerInterval = undefined;
   }
+  if (room.fourPicsGame?.timerInterval) {
+    clearInterval(room.fourPicsGame.timerInterval);
+    room.fourPicsGame.timerInterval = undefined;
+  }
   if (room.bombGame?.timerInterval) {
     clearInterval(room.bombGame.timerInterval);
     room.bombGame.timerInterval = undefined;
@@ -1050,6 +1069,84 @@ function broadcastBugtongState(room: ServerRoom, banner?: string) {
     teamMode: game.teamMode,
     teamScores: game.teamScores,
     leaderboard: room.state.players.filter(player => player.isConnected).map(player => ({ id: player.id, name: player.username, avatar: player.avatar, color: player.color, team: game.playerTeams.get(player.id) || null, score: game.playerScores.get(player.id) || 0, hasAnswered: game.playerAnswers.has(player.id) })).sort((a, b) => b.score - a.score),
+    banner: banner || null,
+  });
+}
+
+// ==================== 4 PICS 1 WORD MULTIPLAYER SERVER ENGINE ====================
+function initFourPicsGame(room: ServerRoom) {
+  clearAllRoomTimers(room);
+  const players = room.state.players.filter(player => player.isConnected);
+  const puzzles = [...FOUR_PICS_PUZZLES].sort(() => Math.random() - 0.5).slice(0, 10);
+  const scores = new Map<string, number>();
+  const correctCounts = new Map<string, number>();
+  players.forEach(player => {
+    scores.set(player.id, 0);
+    correctCounts.set(player.id, 0);
+  });
+  const teamMode = room.settings.unoTeamMode || 'ffa';
+  room.fourPicsGame = { puzzles, currentIndex: 0, timeLeft: 25, activeAnswererId: teamMode === 'ffa' ? null : players[0]?.id || null, scores, correctCounts, answers: new Map(), status: 'playing', winner: null };
+  broadcastFourPicsState(room, '4 Pics 1 Word started!');
+  startFourPicsTimer(room);
+}
+
+function startFourPicsTimer(room: ServerRoom) {
+  const game = room.fourPicsGame;
+  if (!game) return;
+  game.timerInterval = setInterval(() => {
+    if (!room.fourPicsGame || room.fourPicsGame.status !== 'playing') return;
+    room.fourPicsGame.timeLeft -= 1;
+    if (room.fourPicsGame.timeLeft <= 0) endFourPicsRound(room);
+    else io.to(room.id).emit('fourpics:tick', { timeLeft: room.fourPicsGame.timeLeft });
+  }, 1000);
+}
+
+function endFourPicsRound(room: ServerRoom) {
+  const game = room.fourPicsGame;
+  if (!game || game.status !== 'playing') return;
+  if (game.timerInterval) clearInterval(game.timerInterval);
+  game.status = 'round_end';
+  const answer = game.puzzles[game.currentIndex].word;
+  broadcastFourPicsState(room, `Answer: ${answer}`);
+  setTimeout(() => {
+    if (!room.fourPicsGame) return;
+    if (game.currentIndex >= game.puzzles.length - 1) {
+      game.status = 'game_over';
+      const winnerEntry = room.state.players.filter(player => player.isConnected).map(player => {
+        const score = (game.correctCounts.get(player.id) || 0) * 10;
+        game.scores.set(player.id, score);
+        player.score = (player.score || 0) + score;
+        return { id: player.id, name: player.username, score };
+      }).sort((a, b) => b.score - a.score)[0];
+      game.winner = winnerEntry || null;
+      broadcastFourPicsState(room, winnerEntry ? `${winnerEntry.name} wins!` : 'Game complete!');
+      return;
+    }
+    game.currentIndex += 1;
+    game.timeLeft = 25;
+    game.answers.clear();
+    game.status = 'playing';
+    const players = room.state.players.filter(player => player.isConnected);
+    const teamMode = room.settings.unoTeamMode || 'ffa';
+    game.activeAnswererId = teamMode === 'ffa' ? null : players[game.currentIndex % Math.max(players.length, 1)]?.id || null;
+    broadcastFourPicsState(room, `Round ${game.currentIndex + 1} of ${game.puzzles.length}`);
+    startFourPicsTimer(room);
+  }, 2500);
+}
+
+function broadcastFourPicsState(room: ServerRoom, banner?: string) {
+  const game = room.fourPicsGame;
+  if (!game) return;
+  const puzzle = game.puzzles[game.currentIndex];
+  io.to(room.id).emit('fourpics:state', {
+    currentIndex: game.currentIndex,
+    totalRounds: game.puzzles.length,
+    puzzle: { id: puzzle.id, images: puzzle.images, hint: puzzle.hint },
+    timeLeft: game.timeLeft,
+    activeAnswererId: game.activeAnswererId,
+    status: game.status,
+    winner: game.winner,
+    leaderboard: room.state.players.filter(player => player.isConnected).map(player => ({ id: player.id, name: player.username, avatar: player.avatar, score: game.scores.get(player.id) || 0, hasAnswered: game.answers.has(player.id) })).sort((a, b) => b.score - a.score),
     banner: banner || null,
   });
 }
@@ -1707,6 +1804,7 @@ io.on('connection', (socket: Socket) => {
       uno_party: '🃏 UNO Party Showdown',
       trivia_dash: '⚡ Trivia Dash 60s',
       bugtong_bugtong: '🧠 Bugtong-Bugtong',
+      four_pics_one_word: '🖼️ 4 Pics 1 Word',
       anagram_rush: '🔤 Anagram Rush',
       bomb_chain: '💥 Word Bomb Chain',
       ai_sketch_guess: '🤖 AI Sketch Guesser',
@@ -1778,6 +1876,8 @@ io.on('connection', (socket: Socket) => {
         initTriviaGame(room);
       } else if (gameMode === 'bugtong_bugtong') {
         initBugtongGame(room);
+      } else if (gameMode === 'four_pics_one_word') {
+        initFourPicsGame(room);
       } else if (gameMode === 'bomb_chain') {
         initBombGame(room);
       } else if (gameMode === 'speed_duel') {
@@ -2333,7 +2433,41 @@ io.on('connection', (socket: Socket) => {
     if (room) initBugtongGame(room);
   });
 
-  // ==================== 7f. SPEED DUEL MULTIPLAYER HANDLERS ====================
+  // ==================== 7g. 4 PICS 1 WORD MULTIPLAYER HANDLERS ====================
+  socket.on('fourpics:get_state', () => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room) return;
+    if (!room.fourPicsGame) initFourPicsGame(room);
+    else broadcastFourPicsState(room);
+  });
+
+  socket.on('fourpics:answer', ({ answer }: { answer: string }) => {
+    if (!currentRoomId || !currentPlayerId) return;
+    const room = ROOMS.get(currentRoomId);
+    const game = room?.fourPicsGame;
+    if (!room || !game || game.status !== 'playing' || game.answers.has(currentPlayerId)) return;
+    if (game.activeAnswererId && game.activeAnswererId !== currentPlayerId) {
+      socket.emit('fourpics:answer_result', { correct: false, points: 0, message: 'You are supporting your selected teammate this round.' });
+      return;
+    }
+    const normalized = String(answer || '').trim().toUpperCase();
+    const correct = normalized === game.puzzles[game.currentIndex].word;
+    const points = 0;
+    if (correct) game.correctCounts.set(currentPlayerId, (game.correctCounts.get(currentPlayerId) || 0) + 1);
+    game.answers.set(currentPlayerId, { answer: normalized, correct, points });
+    socket.emit('fourpics:answer_result', { correct, points, message: correct ? 'Correct! Your answer was recorded.' : 'Not quite. Try again next round.' });
+    if (correct || game.activeAnswererId) endFourPicsRound(room);
+    else broadcastFourPicsState(room);
+  });
+
+  socket.on('fourpics:rematch', () => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (room) initFourPicsGame(room);
+  });
+
+  // ==================== 7h. SPEED DUEL MULTIPLAYER HANDLERS ====================
   socket.on('duel:get_state', () => {
     if (!currentRoomId) return;
     const room = ROOMS.get(currentRoomId);

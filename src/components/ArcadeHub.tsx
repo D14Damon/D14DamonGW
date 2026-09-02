@@ -29,6 +29,7 @@ import {
   Grid,
   Crosshair,
   Building2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { ArcadeGameMode } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -271,6 +272,21 @@ const ARCADE_GAMES: GameCardConfig[] = [
     difficulty: 'Medium',
     popular: true,
     highlight: '600 Filipino Riddle Variants',
+  },
+  {
+    id: 'four_pics_one_word',
+    title: '4 Pics 1 Word',
+    category: 'multiplayer',
+    tag: 'Picture Guessing',
+    badgeColor: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+    icon: ImageIcon,
+    gradient: 'from-cyan-500 via-blue-600 to-indigo-700',
+    glowColor: 'group-hover:border-cyan-500/50',
+    description: 'Study four shared pictures, discover the connecting word, and work together across ten rounds.',
+    playersCount: '2 - 10 Players / Teams',
+    difficulty: 'Medium',
+    popular: true,
+    highlight: 'Shared Four-Image Puzzles',
   },
   {
     id: 'anagram_rush',

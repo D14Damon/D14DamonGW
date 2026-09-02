@@ -24,6 +24,7 @@ import { WordBomb } from './components/games/WordBomb';
 import { UnoParty } from './components/games/UnoParty';
 import { TriviaDash } from './components/games/TriviaDash';
 import { BugtongBugtong } from './components/games/BugtongBugtong';
+import { FourPicsOneWord } from './components/games/FourPicsOneWord';
 import { AnagramRush } from './components/games/AnagramRush';
 import { SpellingBee } from './components/games/SpellingBee';
 import { SoundMystery } from './components/games/SoundMystery';
@@ -85,6 +86,8 @@ const MainGameContainer: React.FC<{
         return <TriviaDash onBackToHub={leaveRoom} />;
       case 'bugtong_bugtong':
         return <BugtongBugtong onBackToHub={leaveRoom} />;
+      case 'four_pics_one_word':
+        return <FourPicsOneWord onBackToHub={leaveRoom} />;
       case 'anagram_rush':
         return <AnagramRush onBackToHub={leaveRoom} />;
       case 'bomb_chain':
@@ -317,6 +320,12 @@ const MainGameContainer: React.FC<{
           {!gameState && currentMode === 'bugtong_bugtong' && (
             <motion.div key="bugtong_bugtong" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
               <BugtongBugtong onBackToHub={handleBackToLobby} aiConfig={activeAiConfig} />
+            </motion.div>
+          )}
+
+          {!gameState && currentMode === 'four_pics_one_word' && (
+            <motion.div key="four_pics_one_word" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+              <FourPicsOneWord onBackToHub={handleBackToLobby} />
             </motion.div>
           )}
 
