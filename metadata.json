@@ -1,0 +1,8 @@
+{
+  "name": "Guess What? - Multiplayer Drawing & Guessing Game",
+  "description": "The ultimate multiplayer drawing and guessing arcade party game hub with real-time lobbies, party games, admin controls, and global hall of fame.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
