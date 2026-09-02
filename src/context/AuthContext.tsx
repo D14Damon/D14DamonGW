@@ -821,15 +821,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isNgip: ngipState,
     };
 
+    const persistedProfile = target
+      ? normalizeUserProfile({ ...target, ...updates })
+      : null;
+
+    await adminUpdateUserProfileInFirestore(targetUserId, updates);
+
+    if (persistedProfile) {
+      await saveProfileToFirestore(persistedProfile);
+    }
+
     if (user && user.id === targetUserId) {
       const updated: UserProfile = { ...user, ...updates };
       saveUser(updated);
     }
-    // Update state in allRegisteredUsers
+    // Update state in allRegisteredUsers only after DB confirms it was saved
     setAllRegisteredUsers((prev) =>
       prev.map((u) => (u.id === targetUserId ? { ...u, ...updates } : u))
     );
-    await adminUpdateUserProfileInFirestore(targetUserId, updates);
 
     logPlayerActivity({
       type: 'badge_unlocked',

@@ -173,6 +173,17 @@ export interface ServerEmojiGame {
   winner?: { id: string; name: string; avatar: string } | null;
 }
 
+interface ServerChessGame {
+  board: Array<Array<{ type: string; color: 'w' | 'b' } | null>>;
+  turn: 'w' | 'b';
+  winner: 'w' | 'b' | null;
+  gameState: 'playing' | 'checkmate' | 'draw' | 'king_lost';
+  lastMove: { from: string; to: string } | null;
+  moveHistory: Array<{ from: string; to: string; piece: { type: string; color: 'w' | 'b' }; captured?: { type: string; color: 'w' | 'b' } | null; notation: string }>;
+  capturedByWhite: Array<{ type: string; color: 'w' | 'b' }>;
+  capturedByBlack: Array<{ type: string; color: 'w' | 'b' }>;
+}
+
 interface ServerRoom {
   id: string;
   code: string;
@@ -194,6 +205,7 @@ interface ServerRoom {
   duelGame?: ServerDuelGame;
   anagramGame?: ServerAnagramGame;
   emojiGame?: ServerEmojiGame;
+  chessGame?: ServerChessGame;
 }
 
 const ROOMS = new Map<string, ServerRoom>();
@@ -1657,6 +1669,8 @@ io.on('connection', (socket: Socket) => {
         initAnagramGame(room);
       } else if (gameMode === 'emoji_charades') {
         initEmojiGame(room);
+      } else if (gameMode === 'chess_game') {
+        initChessGame(room);
       }
 
       await saveActivityToFirestore({ type: `game_start_${gameMode}`, roomId: room.id, by: caller.id }).catch(() => {});
@@ -1707,6 +1721,52 @@ io.on('connection', (socket: Socket) => {
 
     // Broadcast stroke to all OTHER clients in the room
     socket.to(currentRoomId).emit('draw:action', action);
+  });
+
+  socket.on('chess:move', (payload: {
+    playerId?: string;
+    board?: Array<Array<{ type: string; color: 'w' | 'b' } | null>>;
+    turn?: 'w' | 'b';
+    winner?: 'w' | 'b' | null;
+    gameState?: 'playing' | 'checkmate' | 'draw' | 'king_lost';
+    lastMove?: { from: string; to: string } | null;
+    moveHistory?: Array<{ from: string; to: string; piece: { type: string; color: 'w' | 'b' }; captured?: { type: string; color: 'w' | 'b' } | null; notation: string }>;
+    capturedByWhite?: Array<{ type: string; color: 'w' | 'b' }>;
+    capturedByBlack?: Array<{ type: string; color: 'w' | 'b' }>;
+  }) => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room || room.settings.gameMode !== 'chess_game') return;
+    if (!room.chessGame) {
+      initChessGame(room);
+    }
+
+    const player = room.state.players.find((p) => p.id === (payload.playerId || currentPlayerId));
+    if (!player) return;
+
+    room.chessGame = {
+      board: payload.board || room.chessGame.board,
+      turn: payload.turn || room.chessGame.turn,
+      winner: payload.winner ?? room.chessGame.winner,
+      gameState: payload.gameState || room.chessGame.gameState,
+      lastMove: payload.lastMove ?? room.chessGame.lastMove,
+      moveHistory: payload.moveHistory || room.chessGame.moveHistory,
+      capturedByWhite: payload.capturedByWhite || room.chessGame.capturedByWhite,
+      capturedByBlack: payload.capturedByBlack || room.chessGame.capturedByBlack,
+    };
+
+    room.state.chess = {
+      board: room.chessGame.board,
+      turn: room.chessGame.turn,
+      winner: room.chessGame.winner,
+      gameState: room.chessGame.gameState,
+      lastMove: room.chessGame.lastMove,
+      moveHistory: room.chessGame.moveHistory,
+      capturedByWhite: room.chessGame.capturedByWhite,
+      capturedByBlack: room.chessGame.capturedByBlack,
+    };
+
+    io.to(room.id).emit('room:state', sanitizeStateForClient(room));
   });
 
   // 7. Clear Canvas
@@ -2917,6 +2977,49 @@ function handleGameOver(room: ServerRoom) {
 }
 
 // Sanitize State: Mask secret word for guessers during drawing phase
+function createStandardChessBoard(): Array<Array<{ type: string; color: 'w' | 'b' } | null>> {
+  const board: Array<Array<{ type: string; color: 'w' | 'b' } | null>> = Array.from({ length: 8 }, () => Array(8).fill(null));
+
+  const pieces: Array<string> = ['r', 'n', 'b', 'q', 'k', 'b', 'n', 'r'];
+  pieces.forEach((type, col) => {
+    board[0][col] = { type, color: 'b' };
+    board[7][col] = { type, color: 'w' };
+  });
+
+  for (let col = 0; col < 8; col += 1) {
+    board[1][col] = { type: 'p', color: 'b' };
+    board[6][col] = { type: 'p', color: 'w' };
+  }
+
+  return board;
+}
+
+function initChessGame(room: ServerRoom) {
+  room.state.status = 'drawing';
+  room.state.currentRound = 1;
+  room.chessGame = {
+    board: createStandardChessBoard(),
+    turn: 'w',
+    winner: null,
+    gameState: 'playing',
+    lastMove: null,
+    moveHistory: [],
+    capturedByWhite: [],
+    capturedByBlack: [],
+  };
+  room.state.chess = {
+    board: room.chessGame.board,
+    turn: room.chessGame.turn,
+    winner: room.chessGame.winner,
+    gameState: room.chessGame.gameState,
+    lastMove: room.chessGame.lastMove,
+    moveHistory: room.chessGame.moveHistory,
+    capturedByWhite: room.chessGame.capturedByWhite,
+    capturedByBlack: room.chessGame.capturedByBlack,
+  };
+  io.to(room.id).emit('room:state', sanitizeStateForClient(room));
+}
+
 function sanitizeStateForClient(room: ServerRoom): GameState {
   const isDrawing = room.state.status === 'drawing';
   const maskedWord = isDrawing
@@ -2926,6 +3029,18 @@ function sanitizeStateForClient(room: ServerRoom): GameState {
   return {
     ...room.state,
     word: maskedWord,
+    chess: room.chessGame
+      ? {
+          board: room.chessGame.board,
+          turn: room.chessGame.turn,
+          winner: room.chessGame.winner,
+          gameState: room.chessGame.gameState,
+          lastMove: room.chessGame.lastMove,
+          moveHistory: room.chessGame.moveHistory,
+          capturedByWhite: room.chessGame.capturedByWhite,
+          capturedByBlack: room.chessGame.capturedByBlack,
+        }
+      : undefined,
   };
 }
 

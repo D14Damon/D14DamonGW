@@ -211,6 +211,17 @@ export interface DailyMission {
   };
 }
 
+export interface GameChessSnapshot {
+  board: Array<Array<{ type: string; color: 'w' | 'b' } | null>>;
+  turn: 'w' | 'b';
+  winner: 'w' | 'b' | null;
+  gameState: 'playing' | 'checkmate' | 'draw' | 'king_lost';
+  lastMove: { from: string; to: string } | null;
+  moveHistory: Array<{ from: string; to: string; piece: { type: string; color: 'w' | 'b' }; captured?: { type: string; color: 'w' | 'b' } | null; notation: string }>;
+  capturedByWhite: Array<{ type: string; color: 'w' | 'b' }>;
+  capturedByBlack: Array<{ type: string; color: 'w' | 'b' }>;
+}
+
 export interface GameState {
   roomId: string;
   roomCode: string;
@@ -230,6 +241,7 @@ export interface GameState {
   players: Player[];
   settings: RoomSettings;
   winner?: Player | null;
+  chess?: GameChessSnapshot;
   roundSummary?: {
     word: string;
     drawerBonus: number;

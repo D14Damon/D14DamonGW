@@ -543,6 +543,7 @@ export async function adminUpdateUserProfileInFirestore(userId: string, updates:
     console.log(`✅ Admin updated Firestore user [${userId}] successfully.`);
   } catch (err) {
     console.error('Failed to admin update profile in Firestore:', err);
+    throw err;
   }
 }
 

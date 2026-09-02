@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { AiGameConfig } from '../VsAiArena';
 import { useAuth } from '../../context/AuthContext';
+import { useGame } from '../../context/GameContext';
+import { getSocket } from '../../services/socket';
 import { soundManager } from '../../utils/soundEffects';
 
 export type PieceColor = 'w' | 'b';
@@ -466,6 +468,29 @@ export const ChessGame: React.FC<{
   aiConfig?: AiGameConfig | null;
 }> = ({ onBackToHub, aiConfig }) => {
   const { updateStats } = useAuth();
+  const { gameState: roomState, currentPlayer } = useGame();
+
+  const isMultiplayerChessRoom = Boolean(roomState?.roomId && roomState.settings?.gameMode === 'chess_game');
+  const multiplayerUserColor = useMemo(() => {
+    if (!isMultiplayerChessRoom || !roomState) return 'w';
+    const playerIndex = roomState.players.findIndex(
+      (player) => player.id === currentPlayer?.id || player.username === currentPlayer?.username
+    );
+    return playerIndex >= 0 ? (playerIndex % 2 === 0 ? 'w' : 'b') : 'w';
+  }, [isMultiplayerChessRoom, roomState, currentPlayer]);
+
+  useEffect(() => {
+    if (isMultiplayerChessRoom && roomState?.chess) {
+      setBoard(roomState.chess.board as Board);
+      setTurn(roomState.chess.turn);
+      setLastMove(roomState.chess.lastMove);
+      setMoveHistory(roomState.chess.moveHistory as MoveRecord[]);
+      setCapturedByWhite(roomState.chess.capturedByWhite as ChessPiece[]);
+      setCapturedByBlack(roomState.chess.capturedByBlack as ChessPiece[]);
+      setGameState(roomState.chess.gameState);
+      setWinner(roomState.chess.winner);
+    }
+  }, [isMultiplayerChessRoom, roomState?.chess]);
 
   // Match and Color state: switches each game for the user!
   const [gameCount, setGameCount] = useState<number>(1);
@@ -481,7 +506,8 @@ export const ChessGame: React.FC<{
   const [winner, setWinner] = useState<PieceColor | null>(null);
   const hasRecordedStatsRef = useRef(false);
 
-  const enemyColor: PieceColor = userColor === 'w' ? 'b' : 'w';
+  const activeUserColor = isMultiplayerChessRoom ? multiplayerUserColor : userColor;
+  const enemyColor: PieceColor = activeUserColor === 'w' ? 'b' : 'w';
   const isAiTurn = Boolean(aiConfig && turn === enemyColor && gameState === 'playing');
 
   // Compute legal moves for current selection
@@ -582,20 +608,79 @@ export const ChessGame: React.FC<{
       const opponentKingFound = findKing(nextBoard, nextTurn);
 
       if (!opponentKingFound) {
-        setGameState('king_lost');
+        const nextState = 'king_lost';
+        setGameState(nextState);
         setWinner(piece.color);
+        if (isMultiplayerChessRoom) {
+          const socket = getSocket();
+          socket.emit('chess:move', {
+            playerId: currentPlayer?.id,
+            board: nextBoard,
+            turn: nextTurn,
+            winner: piece.color,
+            gameState: nextState,
+            lastMove: { from: fromSq, to: toSq },
+            moveHistory: [...moveHistory, { from: fromSq, to: toSq, piece, captured: capturedPiece, notation }],
+            capturedByWhite,
+            capturedByBlack,
+          });
+        }
       } else if (opponentLegalMoves.length === 0) {
         if (opponentInCheck) {
-          setGameState('checkmate');
+          const nextState = 'checkmate';
+          setGameState(nextState);
           setWinner(piece.color);
+          if (isMultiplayerChessRoom) {
+            const socket = getSocket();
+            socket.emit('chess:move', {
+              playerId: currentPlayer?.id,
+              board: nextBoard,
+              turn: nextTurn,
+              winner: piece.color,
+              gameState: nextState,
+              lastMove: { from: fromSq, to: toSq },
+              moveHistory: [...moveHistory, { from: fromSq, to: toSq, piece, captured: capturedPiece, notation }],
+              capturedByWhite,
+              capturedByBlack,
+            });
+          }
         } else {
-          setGameState('draw');
+          const nextState = 'draw';
+          setGameState(nextState);
+          if (isMultiplayerChessRoom) {
+            const socket = getSocket();
+            socket.emit('chess:move', {
+              playerId: currentPlayer?.id,
+              board: nextBoard,
+              turn: nextTurn,
+              winner: null,
+              gameState: nextState,
+              lastMove: { from: fromSq, to: toSq },
+              moveHistory: [...moveHistory, { from: fromSq, to: toSq, piece, captured: capturedPiece, notation }],
+              capturedByWhite,
+              capturedByBlack,
+            });
+          }
         }
       } else {
         setTurn(nextTurn);
+        if (isMultiplayerChessRoom) {
+          const socket = getSocket();
+          socket.emit('chess:move', {
+            playerId: currentPlayer?.id,
+            board: nextBoard,
+            turn: nextTurn,
+            winner: null,
+            gameState: 'playing',
+            lastMove: { from: fromSq, to: toSq },
+            moveHistory: [...moveHistory, { from: fromSq, to: toSq, piece, captured: capturedPiece, notation }],
+            capturedByWhite,
+            capturedByBlack,
+          });
+        }
       }
     },
-    [board, turn]
+    [board, turn, isMultiplayerChessRoom, currentPlayer, moveHistory, capturedByWhite, capturedByBlack]
   );
 
   // Handle cell clicks
@@ -653,7 +738,7 @@ export const ChessGame: React.FC<{
   useEffect(() => {
     if (gameState !== 'playing' && !hasRecordedStatsRef.current) {
       hasRecordedStatsRef.current = true;
-      const userWon = winner === userColor;
+      const userWon = winner === activeUserColor;
       const isDraw = gameState === 'draw';
       const earnedScore = userWon ? 350 : isDraw ? 150 : 60;
 
@@ -679,11 +764,28 @@ export const ChessGame: React.FC<{
         'Chess'
       );
     }
-  }, [gameState, winner, userColor, updateStats]);
+  }, [gameState, winner, activeUserColor, updateStats]);
 
   // Restart match and auto-switch color for the next game!
   const handleNewGame = (switchSides: boolean = true) => {
     const nextColor: PieceColor = switchSides ? (userColor === 'w' ? 'b' : 'w') : userColor;
+    if (isMultiplayerChessRoom) {
+      setUserColor(multiplayerUserColor);
+      setGameCount((prev) => prev + 1);
+      setBoard(createStandardBoard());
+      setTurn('w');
+      setSelectedSquare(null);
+      setLastMove(null);
+      setMoveHistory([]);
+      setCapturedByWhite([]);
+      setCapturedByBlack([]);
+      setGameState('playing');
+      setWinner(null);
+      hasRecordedStatsRef.current = false;
+      soundManager.playTurnStart();
+      return;
+    }
+
     setUserColor(nextColor);
     setGameCount((prev) => prev + 1);
     setBoard(createStandardBoard());
@@ -701,6 +803,7 @@ export const ChessGame: React.FC<{
 
   // Toggle user color / Flip Board perspective
   const toggleUserColor = () => {
+    if (isMultiplayerChessRoom) return;
     handleNewGame(true);
   };
 
@@ -708,8 +811,8 @@ export const ChessGame: React.FC<{
   // When user is White: Rows 0..7 (Row 7/Rank 1 at bottom) and Cols 0..7 (a to h)
   // When user is Black: Rows 7..0 (Row 0/Rank 8 at bottom) and Cols 7..0 (h to a)
   const renderedSquares = useMemo(() => {
-    const rows = userColor === 'w' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
-    const cols = userColor === 'w' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+    const rows = activeUserColor === 'w' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
+    const cols = activeUserColor === 'w' ? [0, 1, 2, 3, 4, 5, 6, 7] : [7, 6, 5, 4, 3, 2, 1, 0];
 
     return rows.map((r) =>
       cols.map((c) => {
@@ -735,7 +838,7 @@ export const ChessGame: React.FC<{
         };
       })
     );
-  }, [board, userColor, selectedSquare, legalMovesForSelected, lastMove, turn, inCheck]);
+  }, [board, activeUserColor, selectedSquare, legalMovesForSelected, lastMove, turn, inCheck]);
 
   return (
     <motion.div
@@ -919,15 +1022,15 @@ export const ChessGame: React.FC<{
 
                   <div>
                     <h3 className="text-2xl font-black text-white">
-                      {winner === userColor
+                      {winner === activeUserColor
                         ? 'Checkmate! Victory!'
                         : gameState === 'draw'
                         ? 'Draw / Stalemate!'
                         : 'Defeat — Checkmated'}
                     </h3>
                     <p className="text-sm text-slate-300 font-medium mt-1">
-                      {winner === userColor
-                        ? `You defeated ${aiConfig ? 'the AI' : 'Opponent'} as ${userColor === 'w' ? 'White' : 'Black'}! (+350 PTS)`
+                      {winner === activeUserColor
+                        ? `You defeated ${aiConfig ? 'the AI' : 'Opponent'} as ${activeUserColor === 'w' ? 'White' : 'Black'}! (+350 PTS)`
                         : gameState === 'draw'
                         ? 'Both players fought to a standstill (+150 PTS)'
                         : `Opponent secured checkmate victory. (+60 PTS)`}
@@ -942,7 +1045,7 @@ export const ChessGame: React.FC<{
                       className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black text-sm shadow-lg shadow-violet-600/30 flex items-center gap-2"
                     >
                       <RotateCcw className="w-4 h-4" />
-                      Next Game (Switch to {userColor === 'w' ? 'Black' : 'White'})
+                      Next Game (Switch to {activeUserColor === 'w' ? 'Black' : 'White'})
                     </motion.button>
                   </div>
                 </motion.div>
@@ -960,20 +1063,20 @@ export const ChessGame: React.FC<{
               />
               <span className="text-white font-black">You (Player)</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-400/40">
-                Playing as {userColor === 'w' ? 'Pure White' : 'Pure Black'}
+                Playing as {activeUserColor === 'w' ? 'Pure White' : 'Pure Black'}
               </span>
             </div>
 
             {/* Captured Pieces by User */}
             <div className="flex items-center gap-1">
-              {(userColor === 'w' ? capturedByWhite : capturedByBlack).map((p, idx) => (
+              {(activeUserColor === 'w' ? capturedByWhite : capturedByBlack).map((p, idx) => (
                 <div key={`user-cap-${idx}`} className="w-5 h-5 -ml-1">
                   <ChessPieceIcon type={p.type} color={p.color} className="w-full h-full p-0" />
                 </div>
               ))}
-              {(userColor === 'w' ? materialAdvantage.whiteLead : materialAdvantage.blackLead) > 0 && (
+              {(activeUserColor === 'w' ? materialAdvantage.whiteLead : materialAdvantage.blackLead) > 0 && (
                 <span className="text-[10px] font-black text-amber-400 ml-1">
-                  +{(userColor === 'w' ? materialAdvantage.whiteLead : materialAdvantage.blackLead)}
+                  +{(activeUserColor === 'w' ? materialAdvantage.whiteLead : materialAdvantage.blackLead)}
                 </span>
               )}
             </div>
@@ -998,7 +1101,12 @@ export const ChessGame: React.FC<{
               </button>
               <button
                 onClick={toggleUserColor}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 text-violet-200 text-xs font-bold border border-violet-500/40 transition-all shadow-sm"
+                disabled={isMultiplayerChessRoom}
+                className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border transition-all shadow-sm ${
+                  isMultiplayerChessRoom
+                    ? 'bg-slate-800/60 text-slate-500 border-slate-700 cursor-not-allowed opacity-60'
+                    : 'bg-violet-600/20 hover:bg-violet-600/30 text-violet-200 border-violet-500/40'
+                }`}
               >
                 <RefreshCw className="w-3.5 h-3.5 text-violet-300" />
                 Switch Side
