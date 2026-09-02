@@ -156,6 +156,10 @@ interface ServerFourPicsGame {
   winner?: { id: string; name: string; score: number } | null;
 }
 
+interface PexelsPhotoSearchResponse {
+  photos?: Array<{ src?: { large2x?: string; large?: string; medium?: string } }>;
+}
+
 export interface ServerBombGame {
   prompt: string;
   timeLeft: number;
@@ -1074,10 +1078,31 @@ function broadcastBugtongState(room: ServerRoom, banner?: string) {
 }
 
 // ==================== 4 PICS 1 WORD MULTIPLAYER SERVER ENGINE ====================
-function initFourPicsGame(room: ServerRoom) {
+async function loadPexelsImages(word: string, fallback: [string, string, string, string]): Promise<[string, string, string, string]> {
+  const apiKey = process.env.PEXELS_API_KEY;
+  if (!apiKey) return fallback;
+  try {
+    const query = encodeURIComponent(word.split(' ')[0].toLowerCase());
+    const response = await fetch(`https://api.pexels.com/v1/search?query=${query}&per_page=4&page=1`, {
+      headers: { Authorization: apiKey },
+    });
+    if (!response.ok) return fallback;
+    const data = await response.json() as PexelsPhotoSearchResponse;
+    const photos = (data.photos || []).map((photo) => photo.src?.large2x || photo.src?.large || photo.src?.medium).filter((url): url is string => Boolean(url));
+    return photos.length === 4 ? photos as [string, string, string, string] : fallback;
+  } catch (error) {
+    console.warn('Pexels image lookup failed; using local fallback images.', error);
+    return fallback;
+  }
+}
+
+async function initFourPicsGame(room: ServerRoom) {
   clearAllRoomTimers(room);
   const players = room.state.players.filter(player => player.isConnected);
-  const puzzles = [...FOUR_PICS_PUZZLES].sort(() => Math.random() - 0.5).slice(0, 10);
+  const puzzles = await Promise.all([...FOUR_PICS_PUZZLES].sort(() => Math.random() - 0.5).slice(0, 10).map(async (puzzle) => ({
+    ...puzzle,
+    images: await loadPexelsImages(puzzle.word, puzzle.images),
+  })));
   const scores = new Map<string, number>();
   const correctCounts = new Map<string, number>();
   players.forEach(player => {
