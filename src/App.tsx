@@ -23,6 +23,7 @@ import { MemoryRush } from './components/games/MemoryRush';
 import { WordBomb } from './components/games/WordBomb';
 import { UnoParty } from './components/games/UnoParty';
 import { TriviaDash } from './components/games/TriviaDash';
+import { BugtongBugtong } from './components/games/BugtongBugtong';
 import { AnagramRush } from './components/games/AnagramRush';
 import { SpellingBee } from './components/games/SpellingBee';
 import { SoundMystery } from './components/games/SoundMystery';
@@ -31,7 +32,6 @@ import { CyberTyping } from './components/games/CyberTyping';
 import { SimonSequence } from './components/games/SimonSequence';
 import { EmojiMatch } from './components/games/EmojiMatch';
 import { WhackDoodle } from './components/games/WhackDoodle';
-import { EightBallPool } from './components/games/EightBallPool';
 import { ChessGame } from './components/games/ChessGame';
 import { NgipMegaWheel } from './components/games/NgipMegaWheel';
 import { NgipVaultHacker } from './components/games/NgipVaultHacker';
@@ -83,6 +83,8 @@ const MainGameContainer: React.FC<{
         return <UnoParty onBackToHub={leaveRoom} />;
       case 'trivia_dash':
         return <TriviaDash onBackToHub={leaveRoom} />;
+      case 'bugtong_bugtong':
+        return <BugtongBugtong onBackToHub={leaveRoom} />;
       case 'anagram_rush':
         return <AnagramRush onBackToHub={leaveRoom} />;
       case 'bomb_chain':
@@ -103,8 +105,6 @@ const MainGameContainer: React.FC<{
         return <EmojiMatch onBackToHub={leaveRoom} />;
       case 'whack_doodle':
         return <WhackDoodle onBackToHub={leaveRoom} />;
-      case 'eight_ball_pool':
-        return <EightBallPool onBackToHub={leaveRoom} />;
       case 'chess_game':
         return <ChessGame onBackToHub={leaveRoom} />;
       case 'ngip_mega_wheel':
@@ -314,6 +314,12 @@ const MainGameContainer: React.FC<{
             </motion.div>
           )}
 
+          {!gameState && currentMode === 'bugtong_bugtong' && (
+            <motion.div key="bugtong_bugtong" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.2 }}>
+              <BugtongBugtong onBackToHub={handleBackToLobby} aiConfig={activeAiConfig} />
+            </motion.div>
+          )}
+
           {/* MODE: WORD ANAGRAM SCRAMBLE */}
           {!gameState && currentMode === 'anagram_rush' && (
             <motion.div
@@ -443,20 +449,7 @@ const MainGameContainer: React.FC<{
             </motion.div>
           )}
 
-          {/* MODE 15: 8 BALL POOL */}
-          {!gameState && currentMode === 'eight_ball_pool' && (
-            <motion.div
-              key="eight_ball_pool"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2 }}
-            >
-              <EightBallPool onBackToHub={handleBackToLobby} aiConfig={activeAiConfig} />
-            </motion.div>
-          )}
-
-          {/* MODE 16: CHESS */}
+          {/* MODE 15: CHESS */}
           {!gameState && currentMode === 'chess_game' && (
             <motion.div
               key="chess_game"

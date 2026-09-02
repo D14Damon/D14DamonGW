@@ -75,6 +75,15 @@ const AI_GAMES: AiGameOption[] = [
     category: 'Knowledge Sprint',
   },
   {
+    id: 'bugtong_bugtong',
+    name: 'Bugtong-Bugtong',
+    tagline: 'Classic Filipino riddles with typed A, B, C, D answers against adaptive AI',
+    icon: Brain,
+    accentColor: 'from-amber-500 to-rose-600',
+    badge: 'Riddle Battle',
+    category: 'Filipino Classics',
+  },
+  {
     id: 'anagram_rush',
     name: 'Word Anagram Rush',
     tagline: 'Unscramble letters at hyper speed vs AI lexicon solver',
@@ -102,7 +111,7 @@ const AI_GAMES: AiGameOption[] = [
     category: 'Velocity Typing',
   },
   {
-    id: 'eight_ball_pool',
+    id: 'chess_game',
     name: '8 Ball Pool',
     tagline: 'Line up a legendary break, control the cue angle, and outplay the AI at the table',
     icon: Swords,

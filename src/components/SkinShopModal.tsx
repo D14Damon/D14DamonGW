@@ -12,8 +12,6 @@ interface SkinShopModalProps {
 const SKINS: Array<{ id: GameSkinId; name: string; description: string; mode: ArcadeGameMode; preview: string }> = [
   { id: 'classic', name: 'Classic', description: 'The original look for every game.', mode: 'uno_party', preview: 'from-slate-500 to-slate-800' },
   { id: 'uno_neon', name: 'UNO Neon', description: 'Electric card faces and a bright table glow.', mode: 'uno_party', preview: 'from-rose-500 via-amber-400 to-cyan-400' },
-  { id: 'pool_midnight', name: 'Midnight Felt', description: 'A midnight blue pool table finish.', mode: 'eight_ball_pool', preview: 'from-slate-950 via-blue-900 to-cyan-700' },
-  { id: 'pool_emerald', name: 'Emerald Club', description: 'Deep green felt with a polished club look.', mode: 'eight_ball_pool', preview: 'from-emerald-950 via-emerald-600 to-lime-300' },
   { id: 'cyber_gold', name: 'Cyber Gold', description: 'A metallic arcade finish for supported games.', mode: 'cyber_typing', preview: 'from-amber-300 via-orange-500 to-slate-950' },
 ];
 
@@ -54,8 +52,17 @@ export const SkinShopModal: React.FC<SkinShopModalProps> = ({ isOpen, onClose })
 
         {message && <p className="mt-3 rounded-xl bg-emerald-500/10 px-3 py-2 text-center text-xs font-bold text-emerald-300">{message}</p>}
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {SKINS.map((skin) => {
+        <div className="mt-4 space-y-5">
+          {(['uno_party', 'cyber_typing'] as ArcadeGameMode[]).map((mode) => (
+            <section key={mode} className="space-y-2">
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-1.5">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-300">
+                  {mode === 'uno_party' ? 'UNO Party' : 'Cyber Typing'} Skins
+                </h3>
+                <span className="text-[10px] text-slate-500">Game collection</span>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+          {SKINS.filter((skin) => skin.mode === mode).map((skin) => {
             const expiry = user.cosmetics?.ownedUntil?.[skin.id];
             const owned = skin.id === 'classic' || Boolean(user.cosmetics?.owned.includes(skin.id) && expiry && expiry > Date.now());
             const equipped = user.cosmetics?.equipped[skin.mode] === skin.id;
@@ -80,6 +87,9 @@ export const SkinShopModal: React.FC<SkinShopModalProps> = ({ isOpen, onClose })
               </div>
             );
           })}
+              </div>
+            </section>
+          ))}
         </div>
       </div>
     </div>

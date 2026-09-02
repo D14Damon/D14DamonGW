@@ -28,6 +28,7 @@ import {
 } from './src/data/arcadeData';
 import { isValidEnglishWord, SYLLABLE_PROMPTS } from './src/utils/dictionary';
 import { EMOJI_PUZZLES } from './src/data/emojiPuzzles';
+import { BUGTONG_QUESTIONS, BugtongQuestion } from './src/data/bugtongData';
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -126,6 +127,20 @@ export interface ServerTriviaGame {
   finalScores?: Array<{ id: string; name: string; avatar: string; score: number }>;
 }
 
+interface ServerBugtongGame {
+    playerTeams: Map<string, 'red' | 'blue'>;
+    teamScores: { red: number; blue: number };
+    teamMode: UnoTeamMode;
+  questions: BugtongQuestion[];
+  currentIndex: number;
+  timeLeft: number;
+  playerScores: Map<string, number>;
+  playerAnswers: Map<string, { optionIndex: number; isCorrect: boolean; points: number }>;
+  timerInterval?: NodeJS.Timeout;
+  status: 'playing' | 'round_end' | 'game_over';
+  winner?: { id: string; name: string; avatar: string; score: number } | null;
+}
+
 export interface ServerBombGame {
   prompt: string;
   timeLeft: number;
@@ -201,6 +216,7 @@ interface ServerRoom {
   playersWhoGuessed: Set<string>;
   unoGame?: ServerUnoGame;
   triviaGame?: ServerTriviaGame;
+  bugtongGame?: ServerBugtongGame;
   bombGame?: ServerBombGame;
   duelGame?: ServerDuelGame;
   anagramGame?: ServerAnagramGame;
@@ -662,6 +678,10 @@ function clearAllRoomTimers(room: ServerRoom) {
     clearInterval(room.triviaGame.timerInterval);
     room.triviaGame.timerInterval = undefined;
   }
+  if (room.bugtongGame?.timerInterval) {
+    clearInterval(room.bugtongGame.timerInterval);
+    room.bugtongGame.timerInterval = undefined;
+  }
   if (room.bombGame?.timerInterval) {
     clearInterval(room.bombGame.timerInterval);
     room.bombGame.timerInterval = undefined;
@@ -936,6 +956,89 @@ function broadcastTriviaState(room: ServerRoom, banner?: string) {
     winner: game.winner,
     finalScores: game.finalScores,
     leaderboard,
+    banner: banner || null,
+  });
+}
+
+// ==================== BUGTONG-BUGTONG MULTIPLAYER SERVER ENGINE ====================
+function initBugtongGame(room: ServerRoom) {
+  clearAllRoomTimers(room);
+  const activePlayers = room.state.players.filter(p => p.isConnected);
+  const shuffled = [...BUGTONG_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 15);
+  const playerScores = new Map<string, number>();
+  const playerTeams = new Map<string, 'red' | 'blue'>();
+  const rawTeamMode = room.settings.unoTeamMode || 'ffa';
+  activePlayers.forEach((player, index) => {
+    playerScores.set(player.id, 0);
+    playerTeams.set(player.id, index % 2 === 0 ? 'red' : 'blue');
+  });
+  room.bugtongGame = {
+    questions: shuffled,
+    currentIndex: 0,
+    timeLeft: 20,
+    playerScores,
+    playerAnswers: new Map(),
+    playerTeams,
+    teamScores: { red: 0, blue: 0 },
+    teamMode: rawTeamMode,
+    status: 'playing',
+    winner: null,
+  };
+  broadcastBugtongState(room, `Bugtong-Bugtong! Tanong 1 of ${shuffled.length}`);
+  startBugtongQuestionTimer(room);
+}
+
+function startBugtongQuestionTimer(room: ServerRoom) {
+  if (!room.bugtongGame) return;
+  room.bugtongGame.timerInterval = setInterval(() => {
+    const game = room.bugtongGame;
+    if (!game || game.status !== 'playing') return;
+    game.timeLeft -= 1;
+    if (game.timeLeft <= 0) endBugtongRound(room);
+    else io.to(room.id).emit('bugtong:tick', { timeLeft: game.timeLeft });
+  }, 1000);
+}
+
+function endBugtongRound(room: ServerRoom) {
+  const game = room.bugtongGame;
+  if (!game || game.status !== 'playing') return;
+  if (game.timerInterval) clearInterval(game.timerInterval);
+  game.status = 'round_end';
+  const current = game.questions[game.currentIndex];
+  broadcastBugtongState(room, `Sagot: ${current.options[current.correctIndex]}`);
+  setTimeout(() => {
+    if (!room.bugtongGame) return;
+    const active = room.state.players.filter(player => player.isConnected);
+    if (game.currentIndex >= game.questions.length - 1) {
+      game.status = 'game_over';
+      const rankings = active.map(player => ({ id: player.id, name: player.username, avatar: player.avatar, score: game.playerScores.get(player.id) || 0 })).sort((a, b) => b.score - a.score);
+      game.winner = rankings[0] || null;
+      broadcastBugtongState(room, game.winner ? `Panalo si ${game.winner.name}!` : 'Tapos na ang laro!');
+      return;
+    }
+    game.currentIndex += 1;
+    game.timeLeft = 20;
+    game.playerAnswers.clear();
+    game.status = 'playing';
+    broadcastBugtongState(room, `Tanong ${game.currentIndex + 1} of ${game.questions.length}`);
+    startBugtongQuestionTimer(room);
+  }, 2500);
+}
+
+function broadcastBugtongState(room: ServerRoom, banner?: string) {
+  const game = room.bugtongGame;
+  if (!game) return;
+  const question = game.questions[game.currentIndex];
+  io.to(room.id).emit('bugtong:state', {
+    currentIndex: game.currentIndex,
+    totalQuestions: game.questions.length,
+    question: { id: question.id, category: question.category, question: question.question, options: question.options },
+    timeLeft: game.timeLeft,
+    status: game.status,
+    winner: game.winner,
+    teamMode: game.teamMode,
+    teamScores: game.teamScores,
+    leaderboard: room.state.players.filter(player => player.isConnected).map(player => ({ id: player.id, name: player.username, avatar: player.avatar, color: player.color, team: game.playerTeams.get(player.id) || null, score: game.playerScores.get(player.id) || 0, hasAnswered: game.playerAnswers.has(player.id) })).sort((a, b) => b.score - a.score),
     banner: banner || null,
   });
 }
@@ -1592,6 +1695,7 @@ io.on('connection', (socket: Socket) => {
     const GAME_MODE_TITLES: Record<string, string> = {
       uno_party: '🃏 UNO Party Showdown',
       trivia_dash: '⚡ Trivia Dash 60s',
+      bugtong_bugtong: '🧠 Bugtong-Bugtong',
       anagram_rush: '🔤 Anagram Rush',
       bomb_chain: '💥 Word Bomb Chain',
       ai_sketch_guess: '🤖 AI Sketch Guesser',
@@ -1661,6 +1765,8 @@ io.on('connection', (socket: Socket) => {
         initUnoGame(room);
       } else if (gameMode === 'trivia_dash') {
         initTriviaGame(room);
+      } else if (gameMode === 'bugtong_bugtong') {
+        initBugtongGame(room);
       } else if (gameMode === 'bomb_chain') {
         initBombGame(room);
       } else if (gameMode === 'speed_duel') {
@@ -2184,7 +2290,41 @@ io.on('connection', (socket: Socket) => {
     initTriviaGame(room);
   });
 
-  // ==================== 7e. SPEED DUEL MULTIPLAYER HANDLERS ====================
+  // ==================== 7e. BUGTONG-BUGTONG MULTIPLAYER HANDLERS ====================
+  socket.on('bugtong:get_state', () => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room) return;
+    if (!room.bugtongGame) initBugtongGame(room);
+    else broadcastBugtongState(room);
+  });
+
+  socket.on('bugtong:answer', ({ optionIndex }: { optionIndex: number }) => {
+    if (!currentRoomId || !currentPlayerId) return;
+    const room = ROOMS.get(currentRoomId);
+    const game = room?.bugtongGame;
+    if (!room || !game || game.status !== 'playing' || game.playerAnswers.has(currentPlayerId)) return;
+    const question = game.questions[game.currentIndex];
+    const validIndex = Number.isInteger(optionIndex) && optionIndex >= 0 && optionIndex <= 3;
+    const isCorrect = validIndex && optionIndex === question.correctIndex;
+    const earned = isCorrect ? 100 + game.timeLeft * 5 : 0;
+    game.playerScores.set(currentPlayerId, (game.playerScores.get(currentPlayerId) || 0) + earned);
+    const team = game.playerTeams.get(currentPlayerId);
+    if (team) game.teamScores[team] += earned;
+    game.playerAnswers.set(currentPlayerId, { optionIndex: validIndex ? optionIndex : -1, isCorrect, points: earned });
+    socket.emit('bugtong:answer_result', { isCorrect, points: earned, correctIndex: question.correctIndex });
+    const activeCount = room.state.players.filter(player => player.isConnected).length;
+    if (game.playerAnswers.size >= activeCount) endBugtongRound(room);
+    else broadcastBugtongState(room);
+  });
+
+  socket.on('bugtong:rematch', () => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (room) initBugtongGame(room);
+  });
+
+  // ==================== 7f. SPEED DUEL MULTIPLAYER HANDLERS ====================
   socket.on('duel:get_state', () => {
     if (!currentRoomId) return;
     const room = ROOMS.get(currentRoomId);

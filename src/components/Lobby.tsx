@@ -79,6 +79,13 @@ const ALL_GAME_MODES: Array<{
     badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300',
   },
   {
+    id: 'bugtong_bugtong',
+    label: 'Bugtong-Bugtong',
+    icon: Brain,
+    badge: 'Filipino Riddles',
+    badgeColor: 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-300',
+  },
+  {
     id: 'anagram_rush',
     label: 'Word Anagram Rush',
     icon: SpellCheck,
@@ -121,7 +128,7 @@ const ALL_GAME_MODES: Array<{
     badgeColor: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300',
   },
   {
-    id: 'eight_ball_pool',
+    id: 'chess_game',
     label: '8 Ball Pool',
     icon: Swords,
     badge: 'Cue Sport',
@@ -137,12 +144,12 @@ const ALL_GAME_MODES: Array<{
 ];
 
 const getPlayerCountOptions = (gameMode: ArcadeGameMode): number[] => {
-  if (gameMode === 'eight_ball_pool' || gameMode === 'chess_game') return [2];
+  if (gameMode === 'chess_game') return [2];
   return Array.from({ length: 9 }, (_, index) => index + 2);
 };
 
 const getDefaultMaxPlayers = (gameMode: ArcadeGameMode): number => {
-  if (gameMode === 'eight_ball_pool' || gameMode === 'chess_game') return 2;
+  if (gameMode === 'chess_game') return 2;
   if (gameMode === 'uno_party') return 4;
   return 8;
 };
@@ -224,7 +231,7 @@ export const Lobby: React.FC<LobbyProps> = ({
       allowHints,
       botPlayersEnabled: false,
       gameMode: selectedGameMode,
-      unoTeamMode: selectedGameMode === 'uno_party' ? unoTeamMode : undefined,
+      unoTeamMode: selectedGameMode === 'uno_party' || selectedGameMode === 'bugtong_bugtong' ? unoTeamMode : undefined,
     };
 
     createRoom(settings, roomName.trim() || `${user?.username || 'Player'}'s Arena`);
@@ -523,13 +530,13 @@ export const Lobby: React.FC<LobbyProps> = ({
                 </div>
               </div>
 
-              {/* UNO Party Team Mode Selector (when UNO is selected) */}
-              {selectedGameMode === 'uno_party' && (
+              {/* Team mode selector for team-capable games */}
+              {(selectedGameMode === 'uno_party' || selectedGameMode === 'bugtong_bugtong') && (
                 <div className="p-3.5 bg-rose-50/80 dark:bg-rose-950/40 rounded-2xl border border-rose-200 dark:border-rose-800/80 space-y-2.5 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                      <span>UNO Party Team Battle Mode</span>
+                      <span>{selectedGameMode === 'bugtong_bugtong' ? 'Bugtong-Bugtong Team Battle Mode' : 'UNO Party Team Battle Mode'}</span>
                     </label>
                     <span className="text-[10px] font-mono font-black uppercase text-rose-600 dark:text-rose-400 bg-rose-100 dark:bg-rose-900/60 px-2 py-0.5 rounded-md border border-rose-300 dark:border-rose-700">
                       {unoTeamMode === 'ffa' ? 'Solo FFA' : unoTeamMode.toUpperCase()}
@@ -564,8 +571,8 @@ export const Lobby: React.FC<LobbyProps> = ({
                   </div>
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-snug">
                     {unoTeamMode === 'ffa'
-                      ? 'Free For All: Every player plays for themselves in standard UNO rules.'
-                      : `Team Mode (${unoTeamMode.toUpperCase()}): Red Team 🔴 vs Blue Team 🔵! Alternating seats — when any teammate plays their last card, your whole team wins!`}
+                      ? `Free For All: Every player plays for themselves in ${selectedGameMode === 'bugtong_bugtong' ? 'Bugtong-Bugtong' : 'standard UNO'} rules.`
+                      : `Team Mode (${unoTeamMode.toUpperCase()}): Red Team 🔴 vs Blue Team 🔵! Team scores are combined for the match.`}
                   </p>
                 </div>
               )}

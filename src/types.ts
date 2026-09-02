@@ -9,6 +9,7 @@ export type ArcadeGameMode =
   | 'uno_party'
   | 'ai_sketch_guess'
   | 'trivia_dash'
+  | 'bugtong_bugtong'
   | 'anagram_rush'
   | 'emoji_charades'
   | 'speed_duel'
@@ -26,12 +27,11 @@ export type ArcadeGameMode =
   | 'emoji_match'
   | 'whack_doodle'
   | 'tower_stack'
-  | 'eight_ball_pool'
   | 'chess_game'
   | 'ngip_mega_wheel'
   | 'ngip_vault_hacker';
 
-export type GameSkinId = 'classic' | 'uno_neon' | 'pool_midnight' | 'pool_emerald' | 'cyber_gold';
+export type GameSkinId = 'classic' | 'uno_neon' | 'cyber_gold';
 
 export interface UserCosmetics {
   owned: GameSkinId[];
