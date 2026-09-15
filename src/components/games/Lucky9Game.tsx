@@ -104,6 +104,11 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
   } = useGame();
 
   const isMultiplayerRoom = Boolean(roomGameState && roomGameState.roomId);
+  const isOnlineMultiplayer = Boolean(
+    isMultiplayerRoom &&
+    getSocket().connected &&
+    !roomGameState?.roomId?.startsWith('room_local_')
+  );
   const roomCode =
     roomGameState?.roomCode ||
     (roomGameState?.roomId?.includes('_') ? roomGameState.roomId.split('_')[1].toUpperCase() : roomGameState?.roomId || '');
@@ -176,7 +181,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
   // Opponent config (Bot in Solo/AI, or remote player in multiplayer)
   const opponentName = useMemo(() => {
     if (remoteOpponentName) return remoteOpponentName;
-    if (isMultiplayerRoom && roomGameState) {
+    if (isOnlineMultiplayer && roomGameState) {
       const other = roomGameState.players.find((p) => p.id !== localPlayerId);
       return other ? other.username : 'Opponent';
     }
@@ -184,16 +189,16 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
       return `AI Bot (${aiConfig.difficulty.toUpperCase()})`;
     }
     return 'Croupier Bot';
-  }, [remoteOpponentName, isMultiplayerRoom, roomGameState, localPlayerId, aiConfig]);
+  }, [remoteOpponentName, isOnlineMultiplayer, roomGameState, localPlayerId, aiConfig]);
 
   const opponentAvatar = useMemo(() => {
     if (remoteOpponentAvatar) return remoteOpponentAvatar;
-    if (isMultiplayerRoom && roomGameState) {
+    if (isOnlineMultiplayer && roomGameState) {
       const other = roomGameState.players.find((p) => p.id !== localPlayerId);
       return other ? other.avatar : 'avatar_neon_bot';
     }
     return 'avatar_cyber_fox';
-  }, [remoteOpponentAvatar, isMultiplayerRoom, roomGameState, localPlayerId]);
+  }, [remoteOpponentAvatar, isOnlineMultiplayer, roomGameState, localPlayerId]);
 
   // Scores
   const playerScore = useMemo(() => calculateLucky9Score(playerCards), [playerCards]);
@@ -229,7 +234,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
 
   // Quick Bet Adders & Multiplayer Sync
   const sendMultiplayerBet = (amount: number) => {
-    if (isMultiplayerRoom) {
+    if (isOnlineMultiplayer) {
       const socket = getSocket();
       socket.emit('lucky9:bet', { amount });
     }
@@ -272,7 +277,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
   // MULTIPLAYER SOCKET INTEGRATION (if in room)
   // ==========================================
   useEffect(() => {
-    if (!isMultiplayerRoom) return;
+    if (!isOnlineMultiplayer) return;
     const socket = getSocket();
 
     socket.emit('lucky9:join_game');
@@ -338,7 +343,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
       return;
     }
 
-    if (isMultiplayerRoom) {
+    if (isOnlineMultiplayer) {
       soundManager.playCardSlide();
       const socket = getSocket();
       socket.emit('lucky9:deal');
@@ -505,7 +510,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
     if (playerCards.length >= 3) return;
     soundManager.playCardSlide();
 
-    if (isMultiplayerRoom) {
+    if (isOnlineMultiplayer) {
       const socket = getSocket();
       socket.emit('lucky9:hit');
       return;
@@ -535,7 +540,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
     currentPot = pot
   ) => {
     soundManager.playTick();
-    if (isMultiplayerRoom) {
+    if (isOnlineMultiplayer) {
       const socket = getSocket();
       socket.emit('lucky9:stand');
       return;
@@ -701,7 +706,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
   // Restart next hand
   const handleNextHand = () => {
     soundManager.playTick();
-    if (isMultiplayerRoom) {
+    if (isOnlineMultiplayer) {
       const socket = getSocket();
       socket.emit('lucky9:new_round');
       return;
@@ -1048,13 +1053,19 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
               >
                 {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
-              {isWaitingForOpponentInRoom ? (
-                <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-amber-500/20 text-[9px] font-bold text-amber-400 animate-pulse uppercase">
-                  Waiting Challenger
-                </span>
+              {isOnlineMultiplayer ? (
+                isWaitingForOpponentInRoom ? (
+                  <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-amber-500/20 text-[9px] font-bold text-amber-400 animate-pulse uppercase">
+                    Waiting Challenger
+                  </span>
+                ) : (
+                  <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase">
+                    1v1 Live
+                  </span>
+                )
               ) : (
-                <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase">
-                  1v1 Live
+                <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-amber-500/20 text-[9px] font-bold text-amber-400 uppercase" title="Local 1v1 Table Session">
+                  Local Table
                 </span>
               )}
             </div>
