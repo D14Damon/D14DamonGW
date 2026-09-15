@@ -370,6 +370,7 @@ export interface Lucky9Card {
 }
 
 export type Lucky9RoundStatus =
+  | 'waiting_for_opponent'
   | 'betting'
   | 'dealing'
   | 'player_turn'

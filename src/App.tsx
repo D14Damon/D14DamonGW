@@ -153,7 +153,7 @@ const MainGameContainer: React.FC<{
               transition={{ duration: 0.2 }}
               className="flex-1 flex flex-col"
             >
-              {isRoomInLobby || activeRoomGameMode === 'multiplayer_draw' ? (
+              {activeRoomGameMode === 'multiplayer_draw' ? (
                 /* Room Waiting Lobby OR Drawing Arena Match */
                 <div className="flex-1 flex flex-col space-y-3">
                   {/* Mobile Quick Room Bar with Back button */}

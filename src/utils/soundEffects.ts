@@ -323,6 +323,147 @@ class SoundEffectsManager {
     osc.stop(start + 0.09);
   }
 
+  // Casino Poker Chip Clink
+  public playChipClink(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const freqs = [2400, 3800];
+    const now = ctx.currentTime;
+    freqs.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, now + i * 0.012);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.7, now + 0.06);
+
+      gain.gain.setValueAtTime(0.12, now + i * 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + i * 0.012);
+      osc.stop(now + 0.08);
+    });
+  }
+
+  // Casino Multiple Chips Stacking / Rattle
+  public playChipStack(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    [0, 0.04, 0.09].forEach((offset, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const now = ctx.currentTime + offset;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(2600 + idx * 300, now);
+      osc.frequency.exponentialRampToValueAtTime(1400, now + 0.05);
+
+      gain.gain.setValueAtTime(0.14, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.07);
+    });
+  }
+
+  // Realistic Card Slide across Felt
+  public playCardSlide(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(320, now);
+    osc.frequency.exponentialRampToValueAtTime(680, now + 0.07);
+    osc.frequency.exponentialRampToValueAtTime(220, now + 0.12);
+
+    gain.gain.setValueAtTime(0.02, now);
+    gain.gain.linearRampToValueAtTime(0.13, now + 0.04);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.13);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.14);
+  }
+
+  // Card Flip / Snap
+  public playCardFlip(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(750, now);
+    osc.frequency.exponentialRampToValueAtTime(280, now + 0.08);
+
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  // Lucky 9 / Natural 9 Grand Fanfare
+  public playLucky9Celebration(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const notes = [
+      { freq: 523.25, time: 0, dur: 0.14 },     // C5
+      { freq: 659.25, time: 0.12, dur: 0.14 },   // E5
+      { freq: 783.99, time: 0.24, dur: 0.14 },   // G5
+      { freq: 1046.50, time: 0.36, dur: 0.18 },  // C6
+      { freq: 1318.51, time: 0.52, dur: 0.45 },  // E6 triumphant sustained
+    ];
+
+    notes.forEach((n) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime + n.time;
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(n.freq, start);
+
+      gain.gain.setValueAtTime(0.18, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + n.dur);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + n.dur + 0.05);
+    });
+
+    // Chiming bells
+    [0.65, 0.75, 0.85, 0.95].forEach((offset, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const start = ctx.currentTime + offset;
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1760 + idx * 220, start);
+      gain.gain.setValueAtTime(0.1, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.25);
+    });
+  }
+
   // UNO Shout Triumph
   public playUnoCall(): void {
     const ctx = this.getContext();

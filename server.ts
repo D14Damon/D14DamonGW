@@ -766,8 +766,9 @@ function setLucky9UserCoins(userId: string, amount: number) {
 
 function initLucky9Game(room: ServerRoom) {
   const activePlayers = room.state.players.filter(p => p.isConnected);
-  if (activePlayers.length < 2) return;
+  if (activePlayers.length === 0) return;
 
+  const isWaitingForOpponent = activePlayers.length < 2;
   const deck = createServerLucky9Deck();
   const playerHands = new Map<string, Lucky9Card[]>();
   const bets = new Map<string, number>();
@@ -790,9 +791,11 @@ function initLucky9Game(room: ServerRoom) {
     coins,
     pot: 0,
     currentTurnPlayerId: null,
-    bankerMessage: 'Welcome to Lucky 9 1v1! Stakes are live: the loser will forfeit their bet to the winner. Place your bets and deal!',
-    roundNumber: (room.lucky9Game?.roundNumber || 0) + 1,
-    status: 'betting',
+    bankerMessage: isWaitingForOpponent
+      ? `Banker: Room #${room.code} is open! Waiting for a challenger to take seat at the table. Share room code #${room.code} to begin!`
+      : 'Welcome to Lucky 9 1v1! Both players are seated. Stakes are live: place your bets and click Deal to challenge the table!',
+    roundNumber: isWaitingForOpponent ? 1 : (room.lucky9Game?.roundNumber || 0) + 1,
+    status: isWaitingForOpponent ? ('waiting_for_opponent' as any) : 'betting',
     winner: null,
     winnerReason: null,
   };
@@ -1786,6 +1789,10 @@ io.on('connection', (socket: Socket) => {
     socket.emit('canvas:history', newRoom.drawingHistory);
     broadcastPublicRoomsList();
 
+    if (newRoom.settings.gameMode === 'lucky_9') {
+      initLucky9Game(newRoom);
+    }
+
     // Persist room to Firestore (best-effort, async)
     await saveRoomToFirestore(newRoom);
     await saveActivityToFirestore({ type: 'room_create', roomId: newRoom.id, by: player.id, roomName: newRoom.name }).catch(() => {});
@@ -1859,6 +1866,10 @@ io.on('connection', (socket: Socket) => {
     io.to(room.id).emit('chat:message', joinMsg);
     io.to(room.id).emit('room:state', sanitizeStateForClient(room));
     broadcastPublicRoomsList();
+
+    if (room.settings.gameMode === 'lucky_9') {
+      initLucky9Game(room);
+    }
 
     // Save updated room
     await saveRoomToFirestore(room);
@@ -3379,6 +3390,9 @@ io.on('connection', (socket: Socket) => {
           } else {
             io.to(room.id).emit('room:state', sanitizeStateForClient(room));
             await saveRoomToFirestore(room).catch(() => {});
+            if (room.settings.gameMode === 'lucky_9') {
+              initLucky9Game(room);
+            }
           }
           broadcastPublicRoomsList();
         }
@@ -3441,6 +3455,9 @@ io.on('connection', (socket: Socket) => {
           } else {
             io.to(room.id).emit('room:state', sanitizeStateForClient(room));
             await saveRoomToFirestore(room).catch(() => {});
+            if (room.settings.gameMode === 'lucky_9') {
+              initLucky9Game(room);
+            }
           }
           broadcastPublicRoomsList();
         }

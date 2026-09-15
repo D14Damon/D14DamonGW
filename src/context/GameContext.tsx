@@ -347,13 +347,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [gameState, fetchPublicRooms]);
 
   const createRoom = (settings: RoomSettings, roomName?: string) => {
-    if (!user) return;
     const socket = getSocket();
+    const activeId = user?.id || 'player_' + Math.random().toString(36).substring(2, 9);
+    const activeName = user?.username || 'Player';
+    const activeAvatar = user?.avatar || 'avatar_neon_bot';
+    const activeColor = user?.color || '#6366F1';
     const player: Player = {
-      id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-      color: user.color,
+      id: activeId,
+      username: activeName,
+      avatar: activeAvatar,
+      color: activeColor,
       isHost: true,
       isDrawing: false,
       hasGuessed: false,
@@ -361,19 +364,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       roundScore: 0,
       streak: 0,
       isConnected: true,
-      stats: user.stats,
+      stats: user?.stats,
     };
     socket.emit('room:create', { player, settings, roomName });
   };
 
   const joinRoom = (roomIdentifier: string) => {
-    if (!user || !roomIdentifier.trim()) return;
+    if (!roomIdentifier.trim()) return;
     const socket = getSocket();
+    const activeId = user?.id || 'player_' + Math.random().toString(36).substring(2, 9);
+    const activeName = user?.username || 'Player';
+    const activeAvatar = user?.avatar || 'avatar_neon_bot';
+    const activeColor = user?.color || '#6366F1';
     const player: Player = {
-      id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-      color: user.color,
+      id: activeId,
+      username: activeName,
+      avatar: activeAvatar,
+      color: activeColor,
       isHost: false,
       isDrawing: false,
       hasGuessed: false,
@@ -381,19 +388,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       roundScore: 0,
       streak: 0,
       isConnected: true,
-      stats: user.stats,
+      stats: user?.stats,
     };
     socket.emit('room:join', { roomIdentifier: roomIdentifier.trim(), player });
   };
 
   const quickJoin = () => {
-    if (!user) return;
     const socket = getSocket();
+    const activeId = user?.id || 'player_' + Math.random().toString(36).substring(2, 9);
+    const activeName = user?.username || 'Player';
+    const activeAvatar = user?.avatar || 'avatar_neon_bot';
+    const activeColor = user?.color || '#6366F1';
     const player: Player = {
-      id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-      color: user.color,
+      id: activeId,
+      username: activeName,
+      avatar: activeAvatar,
+      color: activeColor,
       isHost: false,
       isDrawing: false,
       hasGuessed: false,
@@ -401,7 +411,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       roundScore: 0,
       streak: 0,
       isConnected: true,
-      stats: user.stats,
+      stats: user?.stats,
     };
     socket.emit('room:quick_join', { player });
   };
