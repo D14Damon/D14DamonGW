@@ -36,6 +36,7 @@ import { WhackDoodle } from './components/games/WhackDoodle';
 import { ChessGame } from './components/games/ChessGame';
 import { NgipMegaWheel } from './components/games/NgipMegaWheel';
 import { NgipVaultHacker } from './components/games/NgipVaultHacker';
+import { Lucky9Game } from './components/games/Lucky9Game';
 import { ArcadeGameMode } from './types';
 import { AiGameConfig } from './components/VsAiArena';
 import { GothicDripBackground } from './components/GothicDripBackground';
@@ -82,6 +83,8 @@ const MainGameContainer: React.FC<{
     switch (mode) {
       case 'uno_party':
         return <UnoParty onBackToHub={leaveRoom} />;
+      case 'lucky_9':
+        return <Lucky9Game onBackToHub={leaveRoom} />;
       case 'trivia_dash':
         return <TriviaDash onBackToHub={leaveRoom} />;
       case 'bugtong_bugtong':
@@ -302,6 +305,18 @@ const MainGameContainer: React.FC<{
               transition={{ duration: 0.2 }}
             >
               <UnoParty onBackToHub={handleBackToLobby} aiConfig={activeAiConfig} />
+            </motion.div>
+          )}
+
+          {!gameState && currentMode === 'lucky_9' && (
+            <motion.div
+              key="lucky_9"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Lucky9Game onBackToHub={handleBackToLobby} aiConfig={activeAiConfig} />
             </motion.div>
           )}
 

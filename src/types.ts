@@ -30,7 +30,8 @@ export type ArcadeGameMode =
   | 'tower_stack'
   | 'chess_game'
   | 'ngip_mega_wheel'
-  | 'ngip_vault_hacker';
+  | 'ngip_vault_hacker'
+  | 'lucky_9';
 
 export type GameSkinId = 'classic' | 'uno_neon' | 'cyber_gold';
 
@@ -85,6 +86,7 @@ export interface PlayerStats {
   unoCardsPlayed?: number;
   soundsIdentified?: number;
   reflexCombosHit?: number;
+  lucky9Wins?: number;
   currentStreak?: number;
   bestStreak?: number;
 }
@@ -354,4 +356,49 @@ export interface MemoryScene {
   items: MemorySceneItem[];
   backgroundColor: string;
   targetCount: number;
+}
+
+// Lucky 9 (1v1 Card Game) Types
+export type Lucky9Suit = 'spades' | 'hearts' | 'clubs' | 'diamonds';
+
+export interface Lucky9Card {
+  id: string;
+  suit: Lucky9Suit;
+  rank: string; // 'A', '2'-'10', 'J', 'Q', 'K'
+  value: number; // Ace=1, 2-9=face value, 10/J/Q/K=0
+  isRevealed?: boolean;
+}
+
+export type Lucky9RoundStatus =
+  | 'betting'
+  | 'dealing'
+  | 'player_turn'
+  | 'opponent_turn'
+  | 'evaluating'
+  | 'round_over';
+
+export interface Lucky9PlayerState {
+  id: string;
+  name: string;
+  avatar: string;
+  color: string;
+  isBot: boolean;
+  cards: Lucky9Card[];
+  score: number; // 0 - 9
+  bet: number;
+  coins: number;
+  hasHit: boolean;
+  hasStood: boolean;
+  isNatural: boolean;
+  naturalType?: 'natural_9' | 'natural_8';
+}
+
+export interface Lucky9GameState {
+  status: Lucky9RoundStatus;
+  currentTurnPlayerId: string | null;
+  pot: number;
+  bankerMessage: string;
+  winnerId: string | null | 'tie';
+  winnerMessage: string | null;
+  roundNumber: number;
 }

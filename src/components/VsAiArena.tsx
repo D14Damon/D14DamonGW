@@ -57,6 +57,15 @@ const AI_GAMES: AiGameOption[] = [
     category: 'Card Strategy',
   },
   {
+    id: 'lucky_9',
+    name: 'Lucky 9 (1v1 Card Battle)',
+    tagline: 'Authentic 1v1 Lucky 9 showdown vs Smart AI with side banker & free 25k coins bet',
+    icon: Layers,
+    accentColor: 'from-emerald-600 to-teal-600',
+    badge: '1v1 High Stakes',
+    category: 'Card Strategy',
+  },
+  {
     id: 'bomb_chain',
     name: 'Word Bomb Chain',
     tagline: 'Type syllable words before the bomb explodes vs AI defusers',

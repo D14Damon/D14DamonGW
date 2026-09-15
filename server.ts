@@ -17,6 +17,9 @@ import {
   WordChoice,
   UserProfile,
   ArcadeGameMode,
+  Lucky9Card,
+  Lucky9Suit,
+  Lucky9RoundStatus,
 } from './src/types';
 import { getRandomWordChoices } from './src/data/words';
 import {
@@ -218,6 +221,20 @@ interface ServerChessGame {
   capturedByBlack: Array<{ type: string; color: 'w' | 'b' }>;
 }
 
+export interface ServerLucky9Game {
+  deck: Lucky9Card[];
+  playerHands: Map<string, Lucky9Card[]>;
+  bets: Map<string, number>;
+  coins: Map<string, number>;
+  pot: number;
+  currentTurnPlayerId: string | null;
+  bankerMessage: string;
+  roundNumber: number;
+  status: Lucky9RoundStatus;
+  winner: string | null | 'tie';
+  winnerReason: string | null;
+}
+
 interface ServerRoom {
   id: string;
   code: string;
@@ -242,6 +259,7 @@ interface ServerRoom {
   anagramGame?: ServerAnagramGame;
   emojiGame?: ServerEmojiGame;
   chessGame?: ServerChessGame;
+  lucky9Game?: ServerLucky9Game;
 }
 
 const ROOMS = new Map<string, ServerRoom>();
@@ -687,6 +705,146 @@ function drawCardsFromUnoDeck(room: ServerRoom, playerId: string, count: number)
     game.calledUno.delete(playerId);
   }
   return drawn;
+}
+
+// ==================== LUCKY 9 ENGINE ====================
+function createServerLucky9Deck(): Lucky9Card[] {
+  const suits: Lucky9Suit[] = ['spades', 'hearts', 'clubs', 'diamonds'];
+  const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+  const deck: Lucky9Card[] = [];
+
+  suits.forEach(suit => {
+    ranks.forEach(rank => {
+      let value = 0;
+      if (rank === 'A') value = 1;
+      else if (['10', 'J', 'Q', 'K'].includes(rank)) value = 0;
+      else value = parseInt(rank, 10);
+
+      deck.push({
+        id: `${suit}_${rank}_${Math.random().toString(36).substring(2, 7)}`,
+        suit,
+        rank,
+        value,
+      });
+    });
+  });
+
+  // Fisher-Yates shuffle
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+
+  return deck;
+}
+
+function calcServerLucky9Score(cards: Lucky9Card[]): number {
+  return cards.reduce((sum, c) => sum + c.value, 0) % 10;
+}
+
+function checkServerLucky9Natural(cards: Lucky9Card[]): 'natural_9' | 'natural_8' | null {
+  if (cards.length !== 2) return null;
+  const score = calcServerLucky9Score(cards);
+  if (score === 9) return 'natural_9';
+  if (score === 8) return 'natural_8';
+  return null;
+}
+
+const GLOBAL_LUCKY9_USER_COINS = new Map<string, number>();
+const DEFAULT_LUCKY9_COINS = 25000;
+
+function getLucky9UserCoins(userId: string): number {
+  if (!GLOBAL_LUCKY9_USER_COINS.has(userId)) {
+    GLOBAL_LUCKY9_USER_COINS.set(userId, DEFAULT_LUCKY9_COINS);
+  }
+  return GLOBAL_LUCKY9_USER_COINS.get(userId)!;
+}
+
+function setLucky9UserCoins(userId: string, amount: number) {
+  GLOBAL_LUCKY9_USER_COINS.set(userId, Math.max(0, amount));
+}
+
+function initLucky9Game(room: ServerRoom) {
+  const activePlayers = room.state.players.filter(p => p.isConnected);
+  if (activePlayers.length < 2) return;
+
+  const deck = createServerLucky9Deck();
+  const playerHands = new Map<string, Lucky9Card[]>();
+  const bets = new Map<string, number>();
+  const coins = room.lucky9Game?.coins || new Map<string, number>();
+
+  activePlayers.forEach(p => {
+    playerHands.set(p.id, []);
+    const playerCoins = coins.has(p.id) ? (coins.get(p.id) ?? 0) : getLucky9UserCoins(p.id);
+    coins.set(p.id, playerCoins);
+    setLucky9UserCoins(p.id, playerCoins);
+
+    const prevBet = room.lucky9Game?.bets?.get(p.id) || 1000;
+    bets.set(p.id, Math.min(prevBet, playerCoins > 0 ? playerCoins : 0));
+  });
+
+  room.lucky9Game = {
+    deck,
+    playerHands,
+    bets,
+    coins,
+    pot: 0,
+    currentTurnPlayerId: null,
+    bankerMessage: 'Welcome to Lucky 9 1v1! Stakes are live: the loser will forfeit their bet to the winner. Place your bets and deal!',
+    roundNumber: (room.lucky9Game?.roundNumber || 0) + 1,
+    status: 'betting',
+    winner: null,
+    winnerReason: null,
+  };
+
+  broadcastLucky9State(room);
+}
+
+function broadcastLucky9State(room: ServerRoom, banner?: string) {
+  if (!room.lucky9Game) return;
+  const game = room.lucky9Game;
+  const activePlayers = room.state.players.filter(p => p.isConnected);
+
+  activePlayers.forEach(p => {
+    const socketId = p.socketId;
+    if (!socketId) return;
+    const socket = io.sockets.sockets.get(socketId);
+    if (!socket) return;
+
+    const myHand = game.playerHands.get(p.id) || [];
+    const isRoundOver = game.status === 'round_over';
+
+    const playerSummaries = activePlayers.map(pl => {
+      const plHand = game.playerHands.get(pl.id) || [];
+      const isMe = pl.id === p.id;
+      const plCoins = game.coins.get(pl.id) ?? getLucky9UserCoins(pl.id);
+      return {
+        id: pl.id,
+        name: pl.username,
+        avatar: pl.avatar,
+        color: pl.color,
+        isBot: pl.id.startsWith('bot_'),
+        cardCount: plHand.length,
+        bet: game.bets.get(pl.id) || 0,
+        coins: plCoins,
+        score: calcServerLucky9Score(plHand),
+        cards: isMe || isRoundOver ? plHand : plHand.map(c => ({ ...c, isRevealed: false })),
+      };
+    });
+
+    socket.emit('lucky9:state', {
+      players: playerSummaries,
+      myCards: myHand,
+      pot: game.pot,
+      currentTurnPlayerId: game.currentTurnPlayerId,
+      bankerMessage: game.bankerMessage,
+      roundNumber: game.roundNumber,
+      status: game.status,
+      winner: game.winner,
+      winnerReason: game.winnerReason,
+      actionBanner: banner || null,
+    });
+  });
 }
 
 function clearAllRoomTimers(room: ServerRoom) {
@@ -1848,6 +2006,7 @@ io.on('connection', (socket: Socket) => {
       tower_stack: '🏗️ Cyber Tower Stacker',
       ngip_mega_wheel: '🎡 Mega Jackpot Wheel',
       ngip_vault_hacker: '🔐 Cyber Vault Hacker',
+      lucky_9: '🎴 Lucky 9 (1v1)',
       multiplayer_draw: '🎨 Multiplayer Drawing Arena',
     };
 
@@ -1913,6 +2072,8 @@ io.on('connection', (socket: Socket) => {
         initEmojiGame(room);
       } else if (gameMode === 'chess_game') {
         initChessGame(room);
+      } else if (gameMode === 'lucky_9') {
+        initLucky9Game(room);
       }
 
       await saveActivityToFirestore({ type: `game_start_${gameMode}`, roomId: room.id, by: caller.id }).catch(() => {});
@@ -2261,6 +2422,317 @@ io.on('connection', (socket: Socket) => {
     const room = ROOMS.get(currentRoomId);
     if (!room) return;
     initUnoGame(room);
+  });
+
+  // ==================== LUCKY 9 MULTIPLAYER HANDLERS ====================
+  socket.on('lucky9:join_game', () => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room) return;
+
+    if (!room.lucky9Game) {
+      initLucky9Game(room);
+    } else {
+      const activePlayers = room.state.players.filter(p => p.isConnected);
+      activePlayers.forEach(p => {
+        if (!room.lucky9Game!.coins.has(p.id)) {
+          const c = getLucky9UserCoins(p.id);
+          room.lucky9Game!.coins.set(p.id, c);
+        }
+        if (!room.lucky9Game!.bets.has(p.id)) {
+          const c = room.lucky9Game!.coins.get(p.id) || 1000;
+          room.lucky9Game!.bets.set(p.id, Math.min(1000, c));
+        }
+      });
+      broadcastLucky9State(room);
+    }
+  });
+
+  socket.on('lucky9:bet', ({ amount }: { amount: number }) => {
+    if (!currentRoomId || !currentPlayerId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room || !room.lucky9Game) return;
+    const game = room.lucky9Game;
+    if (game.status !== 'betting') return;
+
+    const userCoins = game.coins.get(currentPlayerId) ?? getLucky9UserCoins(currentPlayerId);
+    if (userCoins <= 0) {
+      socket.emit('room:error', { message: 'You have 0 coins left.' });
+      return;
+    }
+    const validAmount = Math.max(1, Math.min(amount, userCoins));
+    game.bets.set(currentPlayerId, validAmount);
+    broadcastLucky9State(room);
+  });
+
+  socket.on('lucky9:deal', () => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room || !room.lucky9Game) return;
+    const game = room.lucky9Game;
+    if (game.status !== 'betting') return;
+
+    const activePlayers = room.state.players.filter(p => p.isConnected);
+    if (activePlayers.length < 2) {
+      socket.emit('room:error', { message: 'Need 2 players for 1v1 Lucky 9.' });
+      return;
+    }
+
+    const p1 = activePlayers[0];
+    const p2 = activePlayers[1];
+    const c1 = game.coins.get(p1.id) ?? getLucky9UserCoins(p1.id);
+    const c2 = game.coins.get(p2.id) ?? getLucky9UserCoins(p2.id);
+
+    if (c1 <= 0 || c2 <= 0) {
+      const brokePlayer = c1 <= 0 ? p1.username : p2.username;
+      game.bankerMessage = `Banker: ${brokePlayer} has 0 coins left and cannot place a bet!`;
+      broadcastLucky9State(room);
+      return;
+    }
+
+    // Both players wager an equal bet in 1v1
+    const b1 = Math.min(game.bets.get(p1.id) || 1000, c1);
+    const b2 = Math.min(game.bets.get(p2.id) || 1000, c2);
+    const matchBet = Math.min(b1, b2);
+
+    if (matchBet <= 0) {
+      game.bankerMessage = 'Banker: Both players need coins to bet.';
+      broadcastLucky9State(room);
+      return;
+    }
+
+    // Deduct bet from both players immediately (stakes are held in pot)
+    const newC1 = c1 - matchBet;
+    const newC2 = c2 - matchBet;
+    game.coins.set(p1.id, newC1);
+    game.coins.set(p2.id, newC2);
+    setLucky9UserCoins(p1.id, newC1);
+    setLucky9UserCoins(p2.id, newC2);
+
+    game.bets.set(p1.id, matchBet);
+    game.bets.set(p2.id, matchBet);
+
+    const totalPot = matchBet * 2;
+    game.pot = totalPot;
+    game.deck = createServerLucky9Deck();
+
+    // Deal 2 initial cards to each player
+    const c1_1 = game.deck.pop()!;
+    const c1_2 = game.deck.pop()!;
+    game.playerHands.set(p1.id, [c1_1, c1_2]);
+
+    const c2_1 = game.deck.pop()!;
+    const c2_2 = game.deck.pop()!;
+    game.playerHands.set(p2.id, [c2_1, c2_2]);
+
+    game.status = 'dealing';
+    game.bankerMessage = `Banker: Dealing cards! Both players staked ${matchBet.toLocaleString()} coins (Total Pot: ${totalPot.toLocaleString()}). Loser will forfeit their bet!`;
+    broadcastLucky9State(room);
+
+    // Natural check
+    setTimeout(() => {
+      const h1 = game.playerHands.get(p1.id) || [];
+      const h2 = game.playerHands.get(p2.id) || [];
+      const nat1 = checkServerLucky9Natural(h1);
+      const nat2 = checkServerLucky9Natural(h2);
+
+      if (nat1 || nat2) {
+        game.status = 'round_over';
+        if (nat1 === 'natural_9' && nat2 === 'natural_9') {
+          game.winner = 'tie';
+          game.winnerReason = 'Both players dealt Natural 9! Push (Tie).';
+          game.bankerMessage = 'Banker: Incredible! Both players dealt Natural 9! Bets are refunded.';
+          const refund = Math.floor(totalPot / 2);
+          const c1Cur = (game.coins.get(p1.id) ?? 0) + refund;
+          const c2Cur = (game.coins.get(p2.id) ?? 0) + refund;
+          game.coins.set(p1.id, c1Cur);
+          game.coins.set(p2.id, c2Cur);
+          setLucky9UserCoins(p1.id, c1Cur);
+          setLucky9UserCoins(p2.id, c2Cur);
+        } else if (nat1 === 'natural_9') {
+          game.winner = p1.id;
+          game.winnerReason = `${p1.username} wins with Natural 9!`;
+          game.bankerMessage = `Banker: Lucky 9! ${p1.username} wins ${matchBet.toLocaleString()} coins from ${p2.username}! Total pot awarded.`;
+          const c1Cur = (game.coins.get(p1.id) ?? 0) + totalPot;
+          game.coins.set(p1.id, c1Cur);
+          setLucky9UserCoins(p1.id, c1Cur);
+        } else if (nat2 === 'natural_9') {
+          game.winner = p2.id;
+          game.winnerReason = `${p2.username} wins with Natural 9!`;
+          game.bankerMessage = `Banker: Lucky 9! ${p2.username} wins ${matchBet.toLocaleString()} coins from ${p1.username}! Total pot awarded.`;
+          const c2Cur = (game.coins.get(p2.id) ?? 0) + totalPot;
+          game.coins.set(p2.id, c2Cur);
+          setLucky9UserCoins(p2.id, c2Cur);
+        } else if (nat1 === 'natural_8' && nat2 === 'natural_8') {
+          game.winner = 'tie';
+          game.winnerReason = 'Both players dealt Natural 8! Push (Tie).';
+          game.bankerMessage = 'Banker: Both players hold Natural 8. It is a draw! Bets returned.';
+          const refund = Math.floor(totalPot / 2);
+          const c1Cur = (game.coins.get(p1.id) ?? 0) + refund;
+          const c2Cur = (game.coins.get(p2.id) ?? 0) + refund;
+          game.coins.set(p1.id, c1Cur);
+          game.coins.set(p2.id, c2Cur);
+          setLucky9UserCoins(p1.id, c1Cur);
+          setLucky9UserCoins(p2.id, c2Cur);
+        } else if (nat1 === 'natural_8') {
+          game.winner = p1.id;
+          game.winnerReason = `${p1.username} wins with Natural 8!`;
+          game.bankerMessage = `Banker: ${p1.username} wins ${matchBet.toLocaleString()} coins from ${p2.username} with Natural 8!`;
+          const c1Cur = (game.coins.get(p1.id) ?? 0) + totalPot;
+          game.coins.set(p1.id, c1Cur);
+          setLucky9UserCoins(p1.id, c1Cur);
+        } else if (nat2 === 'natural_8') {
+          game.winner = p2.id;
+          game.winnerReason = `${p2.username} wins with Natural 8!`;
+          game.bankerMessage = `Banker: ${p2.username} wins ${matchBet.toLocaleString()} coins from ${p1.username} with Natural 8!`;
+          const c2Cur = (game.coins.get(p2.id) ?? 0) + totalPot;
+          game.coins.set(p2.id, c2Cur);
+          setLucky9UserCoins(p2.id, c2Cur);
+        }
+        broadcastLucky9State(room);
+        return;
+      }
+
+      // No Naturals: Proceed to Player 1 Turn
+      game.status = 'player_turn';
+      game.currentTurnPlayerId = p1.id;
+      const s1 = calcServerLucky9Score(h1);
+      if (s1 <= 4) {
+        game.bankerMessage = `Banker: ${p1.username}'s score is ${s1} (0-4). Rule: Must Hit (Draw 3rd Card).`;
+      } else if (s1 === 5) {
+        game.bankerMessage = `Banker: ${p1.username}'s score is 5. Rule: Choice to Hit or Stand.`;
+      } else {
+        game.bankerMessage = `Banker: ${p1.username}'s score is ${s1} (6-7). Rule: Must Stand. Turn moves to ${p2.username}.`;
+        game.currentTurnPlayerId = p2.id;
+      }
+      broadcastLucky9State(room);
+    }, 1200);
+  });
+
+  socket.on('lucky9:hit', () => {
+    if (!currentRoomId || !currentPlayerId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room || !room.lucky9Game) return;
+    const game = room.lucky9Game;
+    if (game.status !== 'player_turn' || game.currentTurnPlayerId !== currentPlayerId) return;
+
+    const hand = game.playerHands.get(currentPlayerId) || [];
+    if (hand.length >= 3) return;
+
+    const card = game.deck.pop();
+    if (card) hand.push(card);
+    game.playerHands.set(currentPlayerId, hand);
+
+    const activePlayers = room.state.players.filter(p => p.isConnected);
+    const p1 = activePlayers[0];
+    const p2 = activePlayers[1];
+
+    if (currentPlayerId === p1?.id) {
+      // Move to Player 2
+      game.currentTurnPlayerId = p2?.id || null;
+      const h2 = game.playerHands.get(p2?.id || '') || [];
+      const s2 = calcServerLucky9Score(h2);
+      if (s2 <= 4) {
+        game.bankerMessage = `Banker: ${p2?.username}'s score is ${s2}. Must Hit (Draw 3rd Card).`;
+      } else if (s2 === 5) {
+        game.bankerMessage = `Banker: ${p2?.username}'s score is 5. Choice to Hit or Stand.`;
+      } else {
+        game.bankerMessage = `Banker: ${p2?.username}'s score is ${s2}. Stands. Proceeding to showdown!`;
+        resolveLucky9Showdown(room);
+        return;
+      }
+      broadcastLucky9State(room);
+    } else {
+      // Player 2 hit -> Showdown
+      resolveLucky9Showdown(room);
+    }
+  });
+
+  socket.on('lucky9:stand', () => {
+    if (!currentRoomId || !currentPlayerId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room || !room.lucky9Game) return;
+    const game = room.lucky9Game;
+    if (game.status !== 'player_turn' || game.currentTurnPlayerId !== currentPlayerId) return;
+
+    const activePlayers = room.state.players.filter(p => p.isConnected);
+    const p1 = activePlayers[0];
+    const p2 = activePlayers[1];
+
+    if (currentPlayerId === p1?.id) {
+      // Move to Player 2
+      game.currentTurnPlayerId = p2?.id || null;
+      const h2 = game.playerHands.get(p2?.id || '') || [];
+      const s2 = calcServerLucky9Score(h2);
+      if (s2 <= 4) {
+        game.bankerMessage = `Banker: ${p1.username} stands. ${p2?.username}'s score is ${s2}. Must Hit.`;
+      } else if (s2 === 5) {
+        game.bankerMessage = `Banker: ${p1.username} stands. ${p2?.username} may Hit or Stand.`;
+      } else {
+        game.bankerMessage = `Banker: Both players stand. Proceeding to showdown!`;
+        resolveLucky9Showdown(room);
+        return;
+      }
+      broadcastLucky9State(room);
+    } else {
+      // Player 2 stands -> Showdown
+      resolveLucky9Showdown(room);
+    }
+  });
+
+  function resolveLucky9Showdown(room: ServerRoom) {
+    if (!room.lucky9Game) return;
+    const game = room.lucky9Game;
+    const activePlayers = room.state.players.filter(p => p.isConnected);
+    const p1 = activePlayers[0];
+    const p2 = activePlayers[1];
+
+    const h1 = game.playerHands.get(p1?.id || '') || [];
+    const h2 = game.playerHands.get(p2?.id || '') || [];
+    const s1 = calcServerLucky9Score(h1);
+    const s2 = calcServerLucky9Score(h2);
+    const matchBet = Math.floor(game.pot / 2);
+
+    game.status = 'round_over';
+    game.currentTurnPlayerId = null;
+
+    if (s1 > s2) {
+      game.winner = p1.id;
+      game.winnerReason = `${p1.username} score ${s1} beats ${p2.username} score ${s2}!`;
+      game.bankerMessage = `Banker: Showdown! ${p1.username} (${s1} pts) beats ${p2.username} (${s2} pts). ${p1.username} wins ${matchBet.toLocaleString()} coins from ${p2.username}!`;
+      const c1Cur = (game.coins.get(p1.id) ?? 0) + game.pot;
+      game.coins.set(p1.id, c1Cur);
+      setLucky9UserCoins(p1.id, c1Cur);
+      setLucky9UserCoins(p2.id, game.coins.get(p2.id) ?? 0);
+    } else if (s2 > s1) {
+      game.winner = p2.id;
+      game.winnerReason = `${p2.username} score ${s2} beats ${p1.username} score ${s1}!`;
+      game.bankerMessage = `Banker: Showdown! ${p2.username} (${s2} pts) beats ${p1.username} (${s1} pts). ${p2.username} wins ${matchBet.toLocaleString()} coins from ${p1.username}!`;
+      const c2Cur = (game.coins.get(p2.id) ?? 0) + game.pot;
+      game.coins.set(p2.id, c2Cur);
+      setLucky9UserCoins(p2.id, c2Cur);
+      setLucky9UserCoins(p1.id, game.coins.get(p1.id) ?? 0);
+    } else {
+      game.winner = 'tie';
+      game.winnerReason = `Push! Both players tied at ${s1} points.`;
+      game.bankerMessage = `Banker: Standoff! Both players scored ${s1} points. Bets refunded!`;
+      const refund = Math.floor(game.pot / 2);
+      const c1Cur = (game.coins.get(p1.id) ?? 0) + refund;
+      const c2Cur = (game.coins.get(p2.id) ?? 0) + refund;
+      game.coins.set(p1.id, c1Cur);
+      game.coins.set(p2.id, c2Cur);
+      setLucky9UserCoins(p1.id, c1Cur);
+      setLucky9UserCoins(p2.id, c2Cur);
+    }
+
+    broadcastLucky9State(room);
+  }
+
+  socket.on('lucky9:new_round', () => {
+    if (!currentRoomId) return;
+    const room = ROOMS.get(currentRoomId);
+    if (!room) return;
+    initLucky9Game(room);
   });
 
   // ==================== 7c. WORD BOMB MULTIPLAYER HANDLERS ====================

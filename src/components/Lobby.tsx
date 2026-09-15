@@ -73,6 +73,13 @@ const ALL_GAME_MODES: Array<{
     badgeColor: 'bg-rose-100 text-rose-700 dark:bg-rose-900/60 dark:text-rose-300',
   },
   {
+    id: 'lucky_9',
+    label: 'Lucky 9 (1v1 Showdown)',
+    icon: Layers,
+    badge: '1v1 Only',
+    badgeColor: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/60 dark:text-emerald-300',
+  },
+  {
     id: 'trivia_dash',
     label: 'Trivia Dash Royale',
     icon: Brain,
@@ -145,12 +152,12 @@ const ALL_GAME_MODES: Array<{
 ];
 
 const getPlayerCountOptions = (gameMode: ArcadeGameMode): number[] => {
-  if (gameMode === 'chess_game') return [2];
+  if (gameMode === 'chess_game' || gameMode === 'lucky_9') return [2];
   return Array.from({ length: 9 }, (_, index) => index + 2);
 };
 
 const getDefaultMaxPlayers = (gameMode: ArcadeGameMode): number => {
-  if (gameMode === 'chess_game') return 2;
+  if (gameMode === 'chess_game' || gameMode === 'lucky_9') return 2;
   if (gameMode === 'uno_party') return 4;
   return 8;
 };
