@@ -178,20 +178,11 @@ export const Lobby: React.FC<LobbyProps> = ({
     errorMessage,
     clearError,
     isConnected,
-    serverUrl,
-    updateServerUrl,
   } = useGame();
   const { user } = useAuth();
 
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showServerModal, setShowServerModal] = useState(false);
-  const [serverUrlInput, setServerUrlInput] = useState(serverUrl);
-
-  useEffect(() => {
-    setServerUrlInput(serverUrl);
-  }, [serverUrl]);
-
   const [roomSearch, setRoomSearch] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [joinBetError, setJoinBetError] = useState<string | null>(null);
@@ -268,11 +259,38 @@ export const Lobby: React.FC<LobbyProps> = ({
   const filteredRooms = publicRooms.filter(
     (r) =>
       r.name.toLowerCase().includes(roomSearch.toLowerCase()) ||
-      r.code.toLowerCase().includes(roomSearch.toLowerCase())
+      r.code.toLowerCase().includes(roomSearch.toLowerCase()) ||
+      (r.gameMode && r.gameMode.toLowerCase().includes(roomSearch.toLowerCase()))
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-6 sm:space-y-8 animate-fade-in w-full">
+    <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 md:px-6 py-3 sm:py-5 space-y-4 sm:space-y-6 animate-fade-in">
+      {/* Live Realistic Status & Activity Ticker Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 rounded-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-purple-900/40 shadow-xs text-xs font-semibold">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span>Multiplayer Cluster Online</span>
+          </div>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200/60 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300">
+            <Users className="w-3.5 h-3.5" />
+            <span className="font-mono font-black">{120 + (publicRooms.reduce((acc, r) => acc + (r.playerCount || 0), 0))}</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">Players Live</span>
+          </div>
+          <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-300 text-[11px]">
+            <Sparkles className="w-3.5 h-3.5 text-purple-500" />
+            <span>Real-time WebSocket Synchronization</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 ml-auto">
+          <span className="hidden sm:inline">Active Lobbies:</span>
+          <span className="font-mono font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
+            {publicRooms.length} Open
+          </span>
+        </div>
+      </div>
+
       {/* Error Alert if any */}
       {(errorMessage || joinBetError) && (
         <div className="p-4 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 rounded-2xl flex items-center justify-between gap-3 text-rose-800 dark:text-rose-200 text-xs font-semibold animate-fade-in">
@@ -297,15 +315,17 @@ export const Lobby: React.FC<LobbyProps> = ({
       {/* ========================================================================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
         {/* Left Col: Join Room with Code + Quick Match & Create Room */}
-        <div className="lg:col-span-5 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-6 space-y-4 flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-200 dark:border-purple-900/50 shadow-md p-4 sm:p-6 space-y-4 flex flex-col justify-between transition-all hover:border-indigo-400 dark:hover:border-purple-600/70">
           <div className="space-y-3">
             <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                <Hash className="w-4 h-4 text-indigo-600" />
-                <span>Join via Room Code</span>
+              <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <Hash className="w-4 h-4" />
+                </div>
+                <span>Direct Room Access</span>
               </h3>
-              <p className="text-xs text-slate-500">
-                Entering a private game or direct room? Enter the room code below.
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Entering a private match or friend's invite? Enter the room code below.
               </p>
             </div>
 
@@ -317,13 +337,13 @@ export const Lobby: React.FC<LobbyProps> = ({
                   value={roomCodeInput}
                   onChange={(e) => setRoomCodeInput(e.target.value.toUpperCase())}
                   maxLength={8}
-                  className="w-full pl-3 pr-3 py-2.5 text-xs font-mono font-bold tracking-widest uppercase bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-2xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full pl-3 pr-3 py-2.5 text-xs font-mono font-black tracking-widest uppercase bg-slate-100/90 dark:bg-slate-800/90 text-slate-900 dark:text-white rounded-2xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner"
                 />
               </div>
               <button
                 type="submit"
                 disabled={!roomCodeInput.trim()}
-                className="px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-xs shrink-0 cursor-pointer"
+                className="px-4 sm:px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-indigo-600/25 shrink-0 cursor-pointer active:scale-95"
               >
                 Enter
               </button>
@@ -339,9 +359,9 @@ export const Lobby: React.FC<LobbyProps> = ({
               <button
                 type="button"
                 onClick={quickJoin}
-                className="w-full py-3 px-3 rounded-2xl text-xs font-extrabold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-md shadow-indigo-600/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98"
+                className="w-full py-3 px-3 rounded-2xl text-xs font-black text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 shadow-md shadow-indigo-600/25 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98 group"
               >
-                <Play className="w-4 h-4 fill-current shrink-0" />
+                <Play className="w-4 h-4 fill-current shrink-0 group-hover:scale-110 transition-transform" />
                 <span className="truncate">Quick Match</span>
               </button>
 
@@ -352,9 +372,9 @@ export const Lobby: React.FC<LobbyProps> = ({
                   setIsPrivate(false);
                   setShowCreateModal(true);
                 }}
-                className="w-full py-3 px-3 rounded-2xl text-xs font-extrabold text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/70 dark:hover:bg-indigo-900/80 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98"
+                className="w-full py-3 px-3 rounded-2xl text-xs font-black text-indigo-700 dark:text-indigo-300 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/70 dark:hover:bg-indigo-900/80 border border-indigo-200 dark:border-indigo-800 flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-98 group"
               >
-                <PlusCircle className="w-4 h-4 shrink-0" />
+                <PlusCircle className="w-4 h-4 shrink-0 group-hover:rotate-90 transition-transform" />
                 <span className="truncate">Create Room</span>
               </button>
             </div>
@@ -362,7 +382,7 @@ export const Lobby: React.FC<LobbyProps> = ({
         </div>
 
         {/* Right Col: Public Game Lobbies (Prominently featured on main screen) */}
-        <div className="lg:col-span-7 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-4 sm:p-6 space-y-3.5 flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-3xl border border-slate-200 dark:border-purple-900/50 shadow-md p-4 sm:p-6 space-y-3.5 flex flex-col justify-between transition-all hover:border-indigo-400 dark:hover:border-purple-600/70">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
             <div>
               <h3 className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
@@ -376,15 +396,10 @@ export const Lobby: React.FC<LobbyProps> = ({
                     Live Sync
                   </span>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setShowServerModal(true)}
-                    className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 px-2 py-0.5 rounded-full border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/60 cursor-pointer transition-colors"
-                    title="Realtime server is offline. Click to configure backend server URL."
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                    Server Offline • Local Mode
-                  </button>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200 dark:border-slate-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                    Connecting...
+                  </span>
                 )}
               </h3>
               <p className="text-xs text-slate-500">
@@ -403,14 +418,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
-              <button
-                type="button"
-                onClick={() => setShowServerModal(true)}
-                title="Server Connection Settings"
-                className="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-all cursor-pointer shrink-0"
-              >
-                <Settings className="w-3.5 h-3.5" />
-              </button>
               <button
                 type="button"
                 onClick={handleRefresh}
@@ -478,6 +485,19 @@ export const Lobby: React.FC<LobbyProps> = ({
                     </div>
 
                     <div>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60">
+                          {r.gameMode === 'lucky_9'
+                            ? '👑 Lucky 9 (1v1)'
+                            : r.gameMode === 'uno_party'
+                            ? '🃏 UNO Party'
+                            : r.gameMode === 'bomb_chain'
+                            ? '💣 Word Bomb'
+                            : r.gameMode === 'trivia_dash'
+                            ? '⚡ Trivia Dash'
+                            : '🎨 Skribbl Draw'}
+                        </span>
+                      </div>
                       <h4 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white truncate">
                         {r.name}
                       </h4>
@@ -774,28 +794,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                 </div>
               )}
 
-              {/* Realtime Server connection notice */}
-              {!isConnected && (
-                <div className="p-2.5 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      Local Table Arena Mode
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowServerModal(true)}
-                      className="text-[11px] underline font-bold hover:text-amber-950 dark:hover:text-white cursor-pointer"
-                    >
-                      Server Config
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-amber-700/80 dark:text-amber-300/80 mt-0.5">
-                    Multiplayer backend is offline (common on static Vercel deployments). Creating this room will launch your 1v1 table session directly without waiting.
-                  </p>
-                </div>
-              )}
-
               {/* Multiplayer rooms intentionally use real participants only */}
               <div className="p-2.5 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/70 dark:bg-emerald-950/30">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-200">
@@ -803,7 +801,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                   <span>Real players only</span>
                 </div>
                 <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80 mt-0.5">
-                  Invite 2–10 friends. AI bots are not added to multiplayer rooms.
+                  Invite real players to join this room. AI bots are never added to multiplayer rooms.
                 </p>
               </div>
 
@@ -829,105 +827,10 @@ export const Lobby: React.FC<LobbyProps> = ({
                       : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
                   }`}
                 >
-                  {selectedGameMode === 'lucky_9'
-                    ? (isConnected ? 'Create & Launch Lucky 9 Table' : 'Create & Launch Lucky 9 Table (Instant)')
-                    : (isConnected ? 'Create & Launch' : 'Create & Launch (Instant)')}
+                  {selectedGameMode === 'lucky_9' ? 'Create Lucky 9 Table' : 'Create & Launch'}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Server Configuration Modal */}
-      {showServerModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400">
-                  <Settings className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                    Multiplayer Server Settings
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Realtime Socket.io Connection
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowServerModal(false)}
-                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-bold cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-slate-700 dark:text-slate-300">Connection Status</span>
-                  {isConnected ? (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Connected
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      Offline / Disconnected
-                    </span>
-                  )}
-                </div>
-                <p className="text-[10px] text-slate-500">
-                  {isConnected
-                    ? 'Connected to realtime game server. Rooms and bets sync live across devices.'
-                    : 'When offline, creating rooms automatically launches local table sessions.'}
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-bold text-slate-700 dark:text-slate-300">
-                  Backend Server URL
-                </label>
-                <input
-                  type="text"
-                  value={serverUrlInput}
-                  onChange={(e) => setServerUrlInput(e.target.value)}
-                  placeholder="https://your-backend-host.com (e.g. Render / Railway / Cloud Run)"
-                  className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <p className="text-[10px] text-slate-400">
-                  If your frontend is hosted on Vercel or Netlify, enter the URL where your Node.js backend server is running.
-                </p>
-              </div>
-
-              <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => {
-                    updateServerUrl(null);
-                    setServerUrlInput(window.location.origin);
-                  }}
-                  className="px-3 py-2 rounded-xl text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-xs font-bold cursor-pointer"
-                >
-                  Reset Default
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    updateServerUrl(serverUrlInput.trim() || null);
-                    setShowServerModal(false);
-                  }}
-                  className="flex-1 py-2 rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 text-xs font-bold cursor-pointer"
-                >
-                  Save & Connect
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}

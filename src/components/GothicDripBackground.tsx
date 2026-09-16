@@ -3,8 +3,25 @@ import React from 'react';
 export const GothicDripBackground: React.FC = () => {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
-      {/* 1. Subtle Radial / Ambient Drip Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/[0.03] dark:via-purple-900/[0.06] to-pink-500/[0.03] dark:to-slate-950" />
+      {/* 1. Subtle Radial / Ambient Drip Gradient & Realistic Animated Glow Orbs */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/[0.03] dark:via-purple-900/[0.08] to-pink-500/[0.03] dark:to-slate-950" />
+      
+      {/* Dynamic Ambient Floating Lights */}
+      <div className="absolute -top-32 left-1/4 w-96 h-96 bg-purple-500/10 dark:bg-purple-600/15 rounded-full blur-3xl animate-shimmer-pulse pointer-events-none" />
+      <div className="absolute top-1/2 -right-24 w-80 h-80 bg-indigo-500/10 dark:bg-indigo-600/10 rounded-full blur-3xl animate-shimmer-pulse pointer-events-none [animation-delay:2s]" />
+      <div className="absolute -bottom-24 left-1/3 w-88 h-88 bg-pink-500/10 dark:bg-pink-600/10 rounded-full blur-3xl animate-shimmer-pulse pointer-events-none [animation-delay:4s]" />
+
+      {/* Subtle Realistic Perspective Grid Matrix */}
+      <div 
+        className="absolute inset-0 opacity-[0.025] dark:opacity-[0.05] pointer-events-none"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(168, 85, 247, 0.4) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(168, 85, 247, 0.4) 1px, transparent 1px)
+          `,
+          backgroundSize: '40px 40px',
+        }}
+      />
 
       {/* 2. Top Edge Gothic Drips SVG (Subtle low transparency) */}
       <svg

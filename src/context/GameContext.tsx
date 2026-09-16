@@ -351,9 +351,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user?.id, user?.username, user?.avatar, user?.color, user?.cosmetics]);
 
-  const updateServerUrl = useCallback((newUrl: string | null) => {
-    setCustomServerUrl(newUrl);
-    setServerUrlState(getServerUrl());
+  const updateServerUrl = useCallback((_newUrl: string | null) => {
+    // Standard origin is always used for the full-stack server
     const socket = reconnectSocket();
     setIsConnected(socket.connected);
     fetchPublicRooms();
@@ -364,14 +363,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (socket.connected) {
       socket.emit('rooms:get');
     }
-    const targetUrl = getServerUrl();
-    fetch(`${targetUrl}/api/rooms`)
+    fetch('/api/rooms')
       .then(res => res.json())
       .then(data => {
         if (data.rooms) setPublicRooms(data.rooms);
       })
       .catch(() => {
-        // Silently catch in case backend server is unreachable
+        // Silently catch in case backend is starting
       });
   }, []);
 
@@ -379,7 +377,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!gameState) {
       fetchPublicRooms();
-      const interval = setInterval(fetchPublicRooms, 3000);
+      const interval = setInterval(fetchPublicRooms, 2500);
       return () => clearInterval(interval);
     }
   }, [gameState, fetchPublicRooms]);
@@ -405,61 +403,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       stats: user?.stats,
     };
 
-    // If socket is disconnected (e.g. deployed to Vercel without backend or offline),
-    // launch an immediate local table session so the user is NEVER left stranded.
-    if (!socket.connected) {
-      const localRoomId = 'room_local_' + Math.random().toString(36).substring(2, 8);
-      const localCode = Math.random().toString(36).substring(2, 7).toUpperCase();
-      const localRoomState: GameState = {
-        roomId: localRoomId,
-        roomCode: localCode,
-        roomName: roomName || `${activeName}'s ${settings.gameMode === 'lucky_9' ? 'Lucky 9 Table' : 'Arena'}`,
-        status: 'lobby',
-        currentRound: 1,
-        totalRounds: settings.maxRounds || 3,
-        drawerId: activeId,
-        drawerName: activeName,
-        word: '',
-        wordLength: 0,
-        revealedIndices: [],
-        hint: '',
-        wordChoices: [],
-        timeLeft: settings.roundDuration || 60,
-        totalTime: settings.roundDuration || 60,
-        players: [player],
-        settings: {
-          ...settings,
-          botPlayersEnabled: true,
-        },
-      };
+    // Strictly real players only in multiplayer rooms (just like UNO)
+    const cleanSettings: RoomSettings = {
+      ...settings,
+      botPlayersEnabled: false,
+    };
 
-      setGameState(localRoomState);
-      setIsHost(true);
-      setDrawingHistory([]);
-      setMessages([
-        {
-          id: 'sys_' + Date.now(),
-          senderName: 'System',
-          text: `⚡ Room launched in Local Table Mode (Real-time backend server is offline or unreachable). You can challenge the table directly or configure your backend URL in settings!`,
-          type: 'system',
-          timestamp: Date.now(),
-        },
-      ]);
-      setErrorMessage(null);
-      return;
+    if (!socket.connected) {
+      socket.connect();
     }
 
-    socket.emit('room:create', { player, settings, roomName });
+    socket.emit('room:create', { player, settings: cleanSettings, roomName });
   };
 
   const joinRoom = (roomIdentifier: string) => {
     if (!roomIdentifier.trim()) return;
     const socket = getSocket();
     if (!socket.connected) {
-      setErrorMessage(
-        'Cannot join multiplayer room: Realtime server is not connected. Set your backend server URL in settings.'
-      );
-      return;
+      socket.connect();
     }
     const activeId = user?.id || 'player_' + Math.random().toString(36).substring(2, 9);
     const activeName = user?.username || 'Player';
@@ -485,21 +446,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const quickJoin = (mode?: ArcadeGameMode) => {
     const socket = getSocket();
     if (!socket.connected) {
-      createRoom(
-        {
-          roundDuration: 60,
-          maxRounds: 3,
-          maxPlayers: mode === 'lucky_9' ? 2 : 4,
-          wordCategory: 'all',
-          customWords: [],
-          isPrivate: false,
-          allowHints: true,
-          botPlayersEnabled: true,
-          gameMode: mode || 'lucky_9',
-        },
-        `Quick Match ${mode === 'lucky_9' ? 'Table' : 'Arena'} (Local)`
-      );
-      return;
+      socket.connect();
     }
     const activeId = user?.id || 'player_' + Math.random().toString(36).substring(2, 9);
     const activeName = user?.username || 'Player';
@@ -519,7 +466,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isConnected: true,
       stats: user?.stats,
     };
-    socket.emit('room:quick_join', { player });
+    socket.emit('room:quick_join', { player, gameMode: mode });
   };
 
   const startGame = () => {

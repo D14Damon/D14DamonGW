@@ -104,11 +104,7 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
   } = useGame();
 
   const isMultiplayerRoom = Boolean(roomGameState && roomGameState.roomId);
-  const isOnlineMultiplayer = Boolean(
-    isMultiplayerRoom &&
-    getSocket().connected &&
-    !roomGameState?.roomId?.startsWith('room_local_')
-  );
+  const isOnlineMultiplayer = Boolean(isMultiplayerRoom);
   const roomCode =
     roomGameState?.roomCode ||
     (roomGameState?.roomId?.includes('_') ? roomGameState.roomId.split('_')[1].toUpperCase() : roomGameState?.roomId || '');
@@ -178,27 +174,27 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
   // Floating chip gain animation on win
   const [flyingReward, setFlyingReward] = useState<number | null>(null);
 
-  // Opponent config (Bot in Solo/AI, or remote player in multiplayer)
+  // Opponent config (Bot only in Solo/AI, or remote player in multiplayer)
   const opponentName = useMemo(() => {
     if (remoteOpponentName) return remoteOpponentName;
-    if (isOnlineMultiplayer && roomGameState) {
+    if (isMultiplayerRoom && roomGameState) {
       const other = roomGameState.players.find((p) => p.id !== localPlayerId);
-      return other ? other.username : 'Opponent';
+      return other ? other.username : 'Waiting for Player...';
     }
     if (aiConfig) {
       return `AI Bot (${aiConfig.difficulty.toUpperCase()})`;
     }
     return 'Croupier Bot';
-  }, [remoteOpponentName, isOnlineMultiplayer, roomGameState, localPlayerId, aiConfig]);
+  }, [remoteOpponentName, isMultiplayerRoom, roomGameState, localPlayerId, aiConfig]);
 
   const opponentAvatar = useMemo(() => {
     if (remoteOpponentAvatar) return remoteOpponentAvatar;
-    if (isOnlineMultiplayer && roomGameState) {
+    if (isMultiplayerRoom && roomGameState) {
       const other = roomGameState.players.find((p) => p.id !== localPlayerId);
       return other ? other.avatar : 'avatar_neon_bot';
     }
     return 'avatar_cyber_fox';
-  }, [remoteOpponentAvatar, isOnlineMultiplayer, roomGameState, localPlayerId]);
+  }, [remoteOpponentAvatar, isMultiplayerRoom, roomGameState, localPlayerId]);
 
   // Scores
   const playerScore = useMemo(() => calculateLucky9Score(playerCards), [playerCards]);
@@ -655,7 +651,9 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
   );
 
   const lucky9PublicRooms = useMemo(() => {
-    return (publicRooms || []).filter((r) => r.settings?.gameMode === 'lucky_9');
+    return (publicRooms || []).filter(
+      (r) => r.gameMode === 'lucky_9' || (r as any).settings?.gameMode === 'lucky_9'
+    );
   }, [publicRooms]);
 
   const handleCopyRoomCode = () => {
@@ -1053,19 +1051,13 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
               >
                 {copiedRoomCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               </button>
-              {isOnlineMultiplayer ? (
-                isWaitingForOpponentInRoom ? (
-                  <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-amber-500/20 text-[9px] font-bold text-amber-400 animate-pulse uppercase">
-                    Waiting Challenger
-                  </span>
-                ) : (
-                  <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase">
-                    1v1 Live
-                  </span>
-                )
+              {isWaitingForOpponentInRoom ? (
+                <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-amber-500/20 text-[9px] font-bold text-amber-400 animate-pulse uppercase">
+                  Waiting for Challenger
+                </span>
               ) : (
-                <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-amber-500/20 text-[9px] font-bold text-amber-400 uppercase" title="Local 1v1 Table Session">
-                  Local Table
+                <span className="hidden md:inline-block px-1.5 py-0.5 rounded bg-emerald-500/20 text-[9px] font-bold text-emerald-400 uppercase">
+                  1v1 Live Showdown
                 </span>
               )}
             </div>
@@ -1102,16 +1094,23 @@ export const Lucky9Game: React.FC<Lucky9GameProps> = ({ onBackToHub, aiConfig })
             <span className="text-slate-500 text-[10px] font-black uppercase px-0.5">vs</span>
 
             {/* Player 2 (Opponent) */}
-            <div className="flex items-center gap-1.5" title={`${opponentName} Balance`}>
-              <div className="w-5 h-5 rounded-full overflow-hidden border border-indigo-400 shrink-0">
-                <AvatarRenderer avatar={opponentAvatar} className="w-full h-full" />
+            {isMultiplayerRoom && isWaitingForOpponentInRoom ? (
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[10px] font-bold">Waiting for Player...</span>
               </div>
-              <div className="flex items-center gap-1 font-mono font-black text-xs sm:text-sm text-amber-300">
-                <Coins className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>{opponentCoins.toLocaleString()}</span>
+            ) : (
+              <div className="flex items-center gap-1.5" title={`${opponentName} Balance`}>
+                <div className="w-5 h-5 rounded-full overflow-hidden border border-indigo-400 shrink-0">
+                  <AvatarRenderer avatar={opponentAvatar} className="w-full h-full" />
+                </div>
+                <div className="flex items-center gap-1 font-mono font-black text-xs sm:text-sm text-amber-300">
+                  <Coins className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>{opponentCoins.toLocaleString()}</span>
+                </div>
+                <span className="text-[10px] text-slate-400 font-sans truncate max-w-[65px] sm:max-w-[90px] hidden md:inline">{opponentName}</span>
               </div>
-              <span className="text-[10px] text-slate-400 font-sans truncate max-w-[65px] sm:max-w-[90px] hidden md:inline">{opponentName}</span>
-            </div>
+            )}
           </div>
 
           <button

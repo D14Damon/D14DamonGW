@@ -88,6 +88,34 @@ body:not(.dark) {
   box-shadow: 0 0 15px rgba(245, 158, 11, 0.5), inset 0 0 10px rgba(245, 158, 11, 0.3);
 }
 
+@keyframes shimmerPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes marqueeSlow {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-shimmer-pulse {
+  animation: shimmerPulse 4s ease-in-out infinite;
+}
+
+.animate-marquee-slow {
+  animation: marqueeSlow 30s linear infinite;
+}
+
 /* Custom subtle scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
