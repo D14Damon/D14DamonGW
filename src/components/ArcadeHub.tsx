@@ -417,11 +417,8 @@ export const ArcadeHub: React.FC<ArcadeHubProps> = ({
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-rose-300 to-purple-300">
-                Welcome to your High Roller VIP Games
+                High Roller VIP Lounge
               </h2>
-              <p className="text-xs text-slate-300 max-w-xl">
-                As a verified งip holder, you have unlocked the Supreme Mega Wheel, Cyber Decryption Matrix, fast animated chroma name, and automatic 3X payouts!
-              </p>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
@@ -459,10 +456,6 @@ export const ArcadeHub: React.FC<ArcadeHubProps> = ({
             <div className="pt-0.5">
               <GWLogo size="lg" showText={true} />
             </div>
-
-            <p className="text-xs sm:text-sm text-slate-300">
-              Host multiplayer drawing rooms, battle in UNO Party showdowns, survive rapid word bombs, or test neural AI stroke guessing!
-            </p>
           </div>
 
           {/* Quick Player Profile & Leaderboard CTA */}
@@ -592,7 +585,7 @@ export const ArcadeHub: React.FC<ArcadeHubProps> = ({
                     </div>
                   </div>
 
-                  {/* Title & Description */}
+                  {/* Title */}
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <h3 className="text-base font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
@@ -604,9 +597,6 @@ export const ArcadeHub: React.FC<ArcadeHubProps> = ({
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-2">
-                      {game.description}
-                    </p>
                   </div>
 
                   {/* Highlight feature pill */}

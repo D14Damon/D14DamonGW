@@ -76,9 +76,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-none">
                 Application Settings
               </h3>
-              <p className="text-xs text-slate-500 dark:text-purple-300 font-bold mt-1">
-                Theme, Visuals & Audio Controls
-              </p>
             </div>
           </div>
 
@@ -174,9 +171,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">
                         Background Soundtrack
                       </h4>
-                      <p className="text-[10px] text-slate-400">
-                        Lofi synthwave retro arcade soundtrack
-                      </p>
                     </div>
                   </div>
 

@@ -225,9 +225,6 @@ export const VsAiArena: React.FC<VsAiArenaProps> = ({ onLaunchGame }) => {
                 Solo Training
               </span>
             </div>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-0.5">
-              Practice tactics against intelligent simulated AI opponents without risking rank
-            </p>
           </div>
         </div>
         <div className="self-start sm:self-auto px-3 py-1.5 sm:px-4 sm:py-2 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl shrink-0">
@@ -247,9 +244,6 @@ export const VsAiArena: React.FC<VsAiArenaProps> = ({ onLaunchGame }) => {
               <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                 Choose Practice Game
               </h3>
-              <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                Select from {AI_GAMES.length} games • Active: <span className="font-bold text-indigo-600 dark:text-indigo-400">{activeGameObj.name}</span>
-              </p>
             </div>
             <span className="text-xs font-mono font-bold text-slate-400 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800">
               {AI_GAMES.length} Modes
@@ -300,14 +294,9 @@ export const VsAiArena: React.FC<VsAiArenaProps> = ({ onLaunchGame }) => {
         <div className="lg:col-span-1 flex flex-col gap-5 justify-between">
           {/* Difficulty Selection */}
           <div className="space-y-3">
-            <div className="space-y-0.5">
-              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
-                Difficulty Level
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                {currentDiffMeta.label}
-              </p>
-            </div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+              Difficulty Level
+            </h3>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 gap-2">
               {(['easy', 'moderate', 'hard', 'extreme'] as AiDifficulty[]).map((diff) => {
@@ -339,17 +328,6 @@ export const VsAiArena: React.FC<VsAiArenaProps> = ({ onLaunchGame }) => {
                 );
               })}
             </div>
-          </div>
-
-          {/* Info Card */}
-          <div className="p-3.5 bg-indigo-50/80 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 space-y-1.5">
-            <div className="flex items-center gap-2 text-indigo-700 dark:text-indigo-300">
-              <Sparkles className="w-4 h-4 text-purple-500" />
-              <span className="font-extrabold text-xs">{currentDiffMeta.label} Engine</span>
-            </div>
-            <p className="text-[11px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
-              {currentDiffMeta.description}
-            </p>
           </div>
 
           {/* Error message */}

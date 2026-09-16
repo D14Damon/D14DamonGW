@@ -130,9 +130,6 @@ export const GlobalLeaderboard: React.FC<{ isOpen: boolean; onClose: () => void 
               <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <span>Leaderboard</span>
               </h2>
-              <p className="text-[11px] sm:text-xs text-slate-500">
-                Official game points, wins, and losses across all players
-              </p>
             </div>
           </div>
 

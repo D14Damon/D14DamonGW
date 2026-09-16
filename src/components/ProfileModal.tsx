@@ -354,9 +354,6 @@ export const ProfileModal: React.FC<{
                         Exclusive
                       </span>
                     </h4>
-                    <p className="text-[10px] text-slate-500">
-                      User management, master stats reset & VIP controls
-                    </p>
                   </div>
                 </div>
 

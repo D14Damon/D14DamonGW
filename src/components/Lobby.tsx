@@ -324,9 +324,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                 </div>
                 <span>Direct Room Access</span>
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Entering a private match or friend's invite? Enter the room code below.
-              </p>
             </div>
 
             <form onSubmit={handleJoinWithCode} className="flex gap-2">
@@ -402,9 +399,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                   </span>
                 )}
               </h3>
-              <p className="text-xs text-slate-500">
-                Browse multiplayer rooms and join with one click, without any wager or currency restrictions.
-              </p>
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -437,9 +431,6 @@ export const Lobby: React.FC<LobbyProps> = ({
               <div>
                 <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
                   No active public lobbies found
-                </p>
-                <p className="text-xs text-slate-400">
-                  Be the first to create an arena or start quick match matchmaking!
                 </p>
               </div>
               <button
@@ -552,9 +543,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                 <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
                   Create Custom Room
                 </h3>
-                <p className="text-xs text-slate-500">
-                  Select your game mode and room settings for a clean multiplayer lobby.
-                </p>
               </div>
               <button
                 type="button"
@@ -636,11 +624,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                       </button>
                     ))}
                   </div>
-                  <p className="text-[10px] text-slate-600 dark:text-slate-400 leading-snug">
-                    {unoTeamMode === 'ffa'
-                      ? `Free For All: Every player plays for themselves in ${selectedGameMode === 'bugtong_bugtong' ? 'Bugtong-Bugtong' : selectedGameMode === 'four_pics_one_word' ? '4 Pics 1 Word' : 'standard UNO'} rules.`
-                      : `Team Mode (${unoTeamMode.toUpperCase()}): Red Team 🔴 vs Blue Team 🔵! Team scores are combined for the match.`}
-                  </p>
                 </div>
               )}
 
@@ -654,20 +637,6 @@ export const Lobby: React.FC<LobbyProps> = ({
                   placeholder={`${user?.username || 'Player'}'s Arena`}
                   className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
-              </div>
-
-              <div className="p-3 bg-gradient-to-br from-slate-50 to-indigo-50/30 dark:from-slate-800/50 dark:to-indigo-950/30 rounded-2xl border border-indigo-200 dark:border-indigo-800">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <div>
-                    <span className="font-extrabold text-slate-900 dark:text-white block">
-                      Casual Room Setup
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      Multiplayer rooms are skill-based and do not require any currency or wager stakes.
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* 4. Round Duration, Rounds & Player Limit */}
